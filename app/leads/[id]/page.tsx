@@ -1,138 +1,192 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import Layout from "@/components/Layout";
-import { useParams, useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
 import {
-  collection,
   doc,
   getDoc,
-  onSnapshot,
-  orderBy,
-  query
+  updateDoc,
 } from "firebase/firestore";
 import Link from "next/link";
 
-export default function LeadDetalhePage() {
+export default function LeadPage() {
   const { id } = useParams();
-  const router = useRouter();
-
   const [lead, setLead] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [apolices, setApolices] = useState<any[]>([]);
 
-  // Carrega dados básicos do Lead
-  useEffect(() => {
-    const carregar = async () => {
-      const ref = doc(db, "leads", id as string);
-      const snap = await getDoc(ref);
+  // Campos editáveis
+  const [nome, setNome] = useState("");
+  const [telefone, setTelefone] = useState("");
+  const [email, setEmail] = useState("");
+  const [origem, setOrigem] = useState("");
+  const [seguradora, setSeguradora] = useState("");
+  const [agente, setAgente] = useState("");
+  const [primeiroContato, setPrimeiroContato] = useState(""); // NOVO
+  const [observacoes, setObservacoes] = useState(""); // NOVO
 
-      if (!snap.exists()) {
-        router.replace("/leads");
-        return;
-      }
-
-      setLead({ id, ...snap.data() });
-      setLoading(false);
-    };
-
-    carregar();
-  }, [id, router]);
-
-  // Carrega apólices dentro do Lead
   useEffect(() => {
     if (!id) return;
 
-    const q = query(
-      collection(db, "leads", id as string, "apolices"),
-      orderBy("inicioVigencia", "desc")
-    );
+    getDoc(doc(db, "leads", id as string)).then((snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
 
-    const unsub = onSnapshot(q, (snap) => {
-      setApolices(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setLead({ id, ...data });
+
+        setNome(data.nome || "");
+        setTelefone(data.telefone || "");
+        setEmail(data.email || "");
+        setOrigem(data.origem || "");
+        setSeguradora(data.seguradora || "");
+        setAgente(data.agente || "");
+        setPrimeiroContato(data.primeiroContato || "");
+        setObservacoes(data.observacoes || "");
+      }
+
+      setLoading(false);
     });
-
-    return () => unsub();
   }, [id]);
 
-  if (loading) {
-    return (
-      <Layout>
-        <p>Carregando...</p>
-      </Layout>
-    );
-  }
+  const salvar = async () => {
+    await updateDoc(doc(db, "leads", id as string), {
+      nome,
+      telefone,
+      email,
+      origem,
+      seguradora,
+      agente,
+      primeiroContato,
+      observacoes,
+    });
+
+    alert("Lead atualizado!");
+  };
+
+  if (loading) return <Layout>Carregando...</Layout>;
+  if (!lead) return <Layout>Lead não encontrado.</Layout>;
 
   return (
     <Layout>
-      {/* Cabeçalho */}
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold">Lead — {lead.nome}</h1>
+      <h1 className="text-2xl font-bold mb-6">Lead: {lead.nome}</h1>
 
-        <Link
-          href={`/leads/${lead.id}/nova-apolice`}
-          className="px-4 py-2 bg-black text-white rounded-md text-sm"
+      <div className="bg-white p-5 rounded shadow max-w-xl space-y-4">
+
+        {/* Nome */}
+        <div>
+          <label className="block mb-1 font-semibold">Nome</label>
+          <input
+            value={nome}
+            onChange={(e) => setNome(e.target.value)}
+            className="border rounded p-2 w-full"
+          />
+        </div>
+
+        {/* Telefone */}
+        <div>
+          <label className="block mb-1 font-semibold">Telefone</label>
+          <input
+            value={telefone}
+            onChange={(e) => setTelefone(e.target.value)}
+            className="border rounded p-2 w-full"
+          />
+        </div>
+
+        {/* Email */}
+        <div>
+          <label className="block mb-1 font-semibold">E-mail</label>
+          <input
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="border rounded p-2 w-full"
+          />
+        </div>
+
+        {/* Origem */}
+        <div>
+          <label className="block mb-1 font-semibold">Origem</label>
+          <select
+            value={origem}
+            onChange={(e) => setOrigem(e.target.value)}
+            className="border rounded p-2 w-full"
+          >
+            <option value="">Selecione</option>
+            <option value="Instagram">Instagram</option>
+            <option value="WhatsApp">WhatsApp</option>
+            <option value="Indicação">Indicação</option>
+          </select>
+        </div>
+
+        {/* Seguradora */}
+        <div>
+          <label className="block mb-1 font-semibold">Seguradora</label>
+          <select
+            value={seguradora}
+            onChange={(e) => setSeguradora(e.target.value)}
+            className="border rounded p-2 w-full"
+          >
+            <option value="">Selecione</option>
+            <option value="Prudential">Prudential</option>
+            <option value="Metlife">Metlife</option>
+            <option value="AIG">AIG</option>
+          </select>
+        </div>
+
+        {/* Agente */}
+        <div>
+          <label className="block mb-1 font-semibold">Agente</label>
+          <select
+            value={agente}
+            onChange={(e) => setAgente(e.target.value)}
+            className="border rounded p-2 w-full"
+          >
+            <option value="">Selecione</option>
+            <option value="Marcelo">Marcelo</option>
+            <option value="Juliana">Juliana</option>
+          </select>
+        </div>
+
+        {/* 📅 Data do Primeiro Contato */}
+        <div>
+          <label className="block mb-1 font-semibold">
+            Data do Primeiro Contato
+          </label>
+          <input
+            type="date"
+            value={primeiroContato}
+            onChange={(e) => setPrimeiroContato(e.target.value)}
+            className="border rounded p-2 w-full"
+          />
+        </div>
+
+        {/* 📝 Observações */}
+        <div>
+          <label className="block mb-1 font-semibold">Observações</label>
+          <textarea
+            value={observacoes}
+            onChange={(e) => setObservacoes(e.target.value)}
+            rows={4}
+            className="border rounded p-2 w-full"
+          />
+        </div>
+
+        {/* Botão salvar */}
+        <button
+          onClick={salvar}
+          className="bg-black text-white px-4 py-2 rounded w-full"
         >
-          Nova Apólice
+          Salvar Alterações
+        </button>
+      </div>
+
+      <div className="mt-6">
+        <Link
+          href={`/leads/${id}/nova-apolice`}
+          className="bg-blue-600 text-white px-4 py-2 rounded"
+        >
+          ➕ Criar Nova Apólice
         </Link>
-      </div>
-
-      {/* Dados do Lead */}
-      <div className="bg-white p-4 rounded-lg shadow mb-10">
-        <p><strong>Telefone:</strong> {lead.telefone}</p>
-        <p><strong>Status:</strong> {lead.status}</p>
-      </div>
-
-      {/* Lista de Apólices */}
-      <h2 className="text-xl font-bold mb-3">Apólices (Lead)</h2>
-
-      <div className="bg-white rounded-lg shadow border">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-gray-100 text-left">
-              <th className="p-3">Número</th>
-              <th className="p-3">Tipo</th>
-              <th className="p-3">Seguradora</th>
-              <th className="p-3">Prêmio</th>
-              <th className="p-3">Vigência</th>
-              <th className="p-3">Ações</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {apolices.map((a) => (
-              <tr key={a.id} className="border-t">
-                <td className="p-3">{a.numero}</td>
-                <td className="p-3">{a.tipo}</td>
-                <td className="p-3">{a.seguradora}</td>
-                <td className="p-3">
-                  {a.moeda === "USD" ? "$" : "R$"} {a.premio}
-                </td>
-                <td className="p-3">
-                  {a.inicioVigencia?.toDate?.().toLocaleDateString()} —{" "}
-                  {a.fimVigencia?.toDate?.().toLocaleDateString()}
-                </td>
-                <td className="p-3">
-                  <Link
-                    href={`/apolices/${a.id}`}
-                    className="text-blue-600 hover:underline"
-                  >
-                    Abrir
-                  </Link>
-                </td>
-              </tr>
-            ))}
-
-            {apolices.length === 0 && (
-              <tr>
-                <td colSpan={6} className="p-4 text-center text-gray-500">
-                  Nenhuma apólice cadastrada.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
       </div>
     </Layout>
   );
