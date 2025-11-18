@@ -15,7 +15,9 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 
-// 🔥 IMPORTAÇÃO DINÂMICA PARA EVITAR ERRO DO NEXT 16 (SSR)
+// ========================================
+// 🔥 DYNAMIC IMPORTS (obrigatório no Next 16)
+// ========================================
 const DragDropContext = dynamic(
   () => import("@hello-pangea/dnd").then((mod) => mod.DragDropContext),
   { ssr: false }
@@ -31,7 +33,9 @@ const Draggable = dynamic(
   { ssr: false }
 );
 
-// 📌 CONFIGURAÇÃO DAS COLUNAS
+// ========================================
+// 📌 CONFIGURAÇÃO VISUAL DO KANBAN
+// ========================================
 const COLUNAS = {
   novo: "Novo",
   contato: "Em Contato",
@@ -39,7 +43,6 @@ const COLUNAS = {
   fechado: "Fechado",
 };
 
-// 🎨 CORES
 const CORES_COLUNA = {
   novo: "bg-blue-100",
   contato: "bg-yellow-100",
@@ -55,14 +58,18 @@ const CORES_CARD = {
 };
 
 export default function LeadsKanban() {
-  const [leads, setLeads] = useState([]);
+  // 🔥 CORREÇÃO DE TIPO
+  const [leads, setLeads] = useState<any[]>([]);
   const [busca, setBusca] = useState("");
 
-  // FILTROS AVANÇADOS
+  // FILTROS
   const [filtroSeguradora, setFiltroSeguradora] = useState("");
   const [filtroOrigem, setFiltroOrigem] = useState("");
   const [filtroAgente, setFiltroAgente] = useState("");
 
+  // ========================================
+  // 🔄 FIRESTORE REALTIME — LISTA DE LEADS
+  // ========================================
   useEffect(() => {
     const q = query(collection(db, "leads"), orderBy("ordem", "asc"));
 
@@ -78,7 +85,9 @@ export default function LeadsKanban() {
     return unsub;
   }, []);
 
-  // 🔍 BUSCA + FILTROS
+  // ========================================
+  // 🔍 APLICA BUSCA + FILTROS
+  // ========================================
   const leadsFiltrados = leads.filter((l) => {
     const termo = busca.toLowerCase();
 
@@ -97,7 +106,9 @@ export default function LeadsKanban() {
     return passaBusca && passaSeguradora && passaOrigem && passaAgente;
   });
 
-  // AGRUPAMENTO POR STATUS
+  // ========================================
+  // 📁 AGRUPAR POR STATUS
+  // ========================================
   const colunas = {
     novo: leadsFiltrados.filter((l) => l.status === "novo"),
     contato: leadsFiltrados.filter((l) => l.status === "contato"),
@@ -105,7 +116,10 @@ export default function LeadsKanban() {
     fechado: leadsFiltrados.filter((l) => l.status === "fechado"),
   };
 
-  const onDragEnd = async (result) => {
+  // ========================================
+  // 🔁 DRAG & DROP COMPLETO
+  // ========================================
+  const onDragEnd = async (result: any) => {
     const { destination, source, draggableId } = result;
     if (!destination) return;
 
@@ -124,7 +138,7 @@ export default function LeadsKanban() {
       return;
     }
 
-    // 🔁 MESMA COLUNA → REORDER
+    // 🔁 SOMENTE REORDER DENTRO DA COLUNA
     const novaLista = Array.from(colunas[statusOrigem]);
     const [removido] = novaLista.splice(source.index, 1);
     novaLista.splice(destination.index, 0, removido);
@@ -136,8 +150,10 @@ export default function LeadsKanban() {
     });
   };
 
-  // ➕ Criar lead dentro da coluna
-  const criarLead = async (status) => {
+  // ========================================
+  // ➕ CRIAR LEAD NA COLUNA
+  // ========================================
+  const criarLead = async (status: string) => {
     await addDoc(collection(db, "leads"), {
       nome: "Novo Lead",
       telefone: "",
@@ -199,11 +215,14 @@ export default function LeadsKanban() {
         </select>
       </div>
 
+      {/* ======================================
+          🟪 COLUNAS DO KANBAN
+         ====================================== */}
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="grid grid-cols-4 gap-4">
           {Object.keys(COLUNAS).map((col) => (
             <Droppable droppableId={col} key={col}>
-              {(provided) => (
+              {(provided: any) => (
                 <div
                   className={`${CORES_COLUNA[col]} rounded-lg p-3 min-h-[500px]`}
                   ref={provided.innerRef}
@@ -230,7 +249,7 @@ export default function LeadsKanban() {
                       index={index}
                       key={lead.id}
                     >
-                      {(prov) => (
+                      {(prov: any) => (
                         <div
                           ref={prov.innerRef}
                           {...prov.draggableProps}
@@ -241,7 +260,6 @@ export default function LeadsKanban() {
                           <p className="text-sm text-gray-600">
                             {lead.telefone}
                           </p>
-
                           <span className="text-xs text-gray-500">
                             {lead.seguradora || "Sem seguradora"}
                           </span>
