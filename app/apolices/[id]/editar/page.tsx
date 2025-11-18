@@ -4,11 +4,7 @@ import { useEffect, useState } from "react";
 import Layout from "@/components/Layout";
 import { useParams, useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
-import {
-  doc,
-  getDoc,
-  updateDoc,
-} from "firebase/firestore";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 
 // 🔹 Tipo da Apólice
 type Apolice = {
@@ -49,21 +45,31 @@ export default function EditarApolice() {
 
       if (!snap.exists()) return;
 
-     const dataFS = snap.data() as any;
+      const dataFS = snap.data() as any;
 
-     const dados = {
-     ...dataFS,
-     id: id as string,
-     };
+      // 🔥 Construção segura do objeto tipado
+      const ap: Apolice = {
+        id: id as string,
+        numero: dataFS.numero || "",
+        tipo: dataFS.tipo || "vida",
+        seguradora: dataFS.seguradora || "",
+        premio: dataFS.premio || 0,
+        moeda: dataFS.moeda || "USD",
+        inicioVigencia: dataFS.inicioVigencia || null,
+        fimVigencia: dataFS.fimVigencia || null,
+        notas: dataFS.notas || "",
+        refTipo: dataFS.refTipo,
+        refId: dataFS.refId,
+      };
 
       setApolice(ap);
 
-      // Preencher campos com segurança
-      setNumero(ap.numero || "");
-      setTipo(ap.tipo || "vida");
-      setSeguradora(ap.seguradora || "");
-      setPremio(String(ap.premio || ""));
-      setMoeda(ap.moeda || "USD");
+      // Preencher campos
+      setNumero(ap.numero);
+      setTipo(ap.tipo);
+      setSeguradora(ap.seguradora);
+      setPremio(String(ap.premio));
+      setMoeda(ap.moeda);
 
       setInicio(
         ap.inicioVigencia
@@ -79,13 +85,16 @@ export default function EditarApolice() {
 
       setNotas(ap.notas || "");
 
-      // Carregar cliente / lead vinculado
+      // 🔍 Carregar cliente vinculado
       if (ap.refTipo && ap.refId) {
         const col = ap.refTipo === "lead" ? "leads" : "clientes";
         const snapC = await getDoc(doc(db, col, ap.refId));
 
         if (snapC.exists()) {
-          setCliente({ id: ap.refId, ...snapC.data() });
+          setCliente({
+            id: ap.refId,
+            ...snapC.data(),
+          });
         }
       }
     };
@@ -110,7 +119,7 @@ export default function EditarApolice() {
     // Atualizar coleção global
     await updateDoc(doc(db, "todasApolices", id as string), atualizado);
 
-    // Atualizar subcoleção (cliente/lead)
+    // Atualizar subcoleção original
     const col = apolice.refTipo === "lead" ? "leads" : "clientes";
 
     await updateDoc(
