@@ -99,7 +99,7 @@ export default function LeadsKanban() {
     return passaBusca && passaSeguradora && passaOrigem && passaAgente;
   });
 
-  const colunas: Record<string, Lead[]> = {
+  const colunas: Record<keyof typeof COLUNAS, Lead[]> = {
     novo: leadsFiltrados.filter((l) => l.status === "novo"),
     contato: leadsFiltrados.filter((l) => l.status === "contato"),
     proposta: leadsFiltrados.filter((l) => l.status === "proposta"),
@@ -197,7 +197,9 @@ export default function LeadsKanban() {
 
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="grid grid-cols-4 gap-4">
-          {Object.keys(COLUNAS).map((col) => (
+          {(
+            Object.keys(COLUNAS) as Array<keyof typeof COLUNAS>
+          ).map((col) => (
             <Droppable droppableId={col} key={col}>
               {(provided) => (
                 <div
@@ -211,7 +213,7 @@ export default function LeadsKanban() {
                     </h2>
 
                     <button
-                      onClick={() => criarLead(col as Lead["status"])}
+                      onClick={() => criarLead(col)}
                       className="bg-black text-white px-2 py-1 rounded"
                     >
                       ➕
