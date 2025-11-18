@@ -92,36 +92,35 @@ export default function LeadsKanban() {
     fechado: leadsFiltrados.filter((l) => l.status === "fechado"),
   };
 
-  const onDragEnd = async (result: {
-    destination: { droppableId: Status; index: number } | null;
-    source: { droppableId: Status; index: number };
-    draggableId: string;
-  }) => {
-    const { destination, source, draggableId } = result;
-    if (!destination) return;
+ const onDragEnd = async (result: any) => {
+  const { destination, source, draggableId } = result;
+  if (!destination) return;
 
-    const statusOrigem = source.droppableId;
-    const statusDestino = destination.droppableId;
+  const statusOrigem = source.droppableId as Status;
+  const statusDestino = destination.droppableId as Status;
 
-    if (statusOrigem !== statusDestino) {
-      const novaOrdem = colunas[statusDestino].length;
+  // MUDOU DE COLUNA
+  if (statusOrigem !== statusDestino) {
+    const novaOrdem = colunas[statusDestino].length;
 
-      await updateDoc(doc(db, "leads", draggableId), {
-        status: statusDestino,
-        ordem: novaOrdem,
-      });
-
-      return;
-    }
-
-    const novaLista = Array.from(colunas[statusOrigem]);
-    const [removido] = novaLista.splice(source.index, 1);
-    novaLista.splice(destination.index, 0, removido);
-
-    novaLista.forEach(async (lead, index) => {
-      await updateDoc(doc(db, "leads", lead.id), { ordem: index });
+    await updateDoc(doc(db, "leads", draggableId), {
+      status: statusDestino,
+      ordem: novaOrdem,
     });
-  };
+
+    return;
+  }
+
+  // REORDENAR NA MESMA COLUNA
+  const novaLista = [...colunas[statusOrigem]];
+  const [removido] = novaLista.splice(source.index, 1);
+  novaLista.splice(destination.index, 0, removido);
+
+  novaLista.forEach(async (lead, index) => {
+    await updateDoc(doc(db, "leads", lead.id), { ordem: index });
+  });
+};
+
 
   const criarLead = async (status: Status) => {
     await addDoc(collection(db, "leads"), {
