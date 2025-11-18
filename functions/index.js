@@ -3,16 +3,20 @@
  * Sincronização automática de apólices + alerta de renovação
  */
 
-const { onDocumentCreated, onDocumentUpdated, onDocumentDeleted } = require("firebase-functions/v2/firestore");
+const {
+  onDocumentCreated,
+  onDocumentUpdated,
+  onDocumentDeleted,
+} = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const admin = require("firebase-admin");
 
 admin.initializeApp();
 const db = admin.firestore();
 
-// -------------------------------------
-// 🔄 SYNC: Criar apólice (V2)
-// -------------------------------------
+/* --------------------------------------------------------------------
+   🔄 SYNC: Criar apólice (V2)
+-------------------------------------------------------------------- */
 exports.syncApoliceCreate = onDocumentCreated(
   {
     document: "{tipo}/{refId}/apolices/{apoliceId}",
@@ -30,15 +34,16 @@ exports.syncApoliceCreate = onDocumentCreated(
       ...data,
       refTipo: tipo === "leads" ? "lead" : "cliente",
       refId: refId,
+      refNome: data.refNome || "", // <-- IMPORTANTE
     });
 
     console.log("✔ Apólice sincronizada (CREATE):", apoliceId);
   }
 );
 
-// -------------------------------------
-// 🔄 SYNC: Atualizar apólice (V2)
-// -------------------------------------
+/* --------------------------------------------------------------------
+   🔄 SYNC: Atualizar apólice (V2)
+-------------------------------------------------------------------- */
 exports.syncApoliceUpdate = onDocumentUpdated(
   {
     document: "{tipo}/{refId}/apolices/{apoliceId}",
@@ -56,23 +61,23 @@ exports.syncApoliceUpdate = onDocumentUpdated(
       ...novo,
       refTipo: tipo === "leads" ? "lead" : "cliente",
       refId: refId,
+      refNome: novo.refNome || "", // <-- IMPORTANTE
     });
 
     console.log("✔ Apólice sincronizada (UPDATE):", apoliceId);
   }
 );
 
-// -------------------------------------
-// 🔄 SYNC: Deletar apólice (V2)
-// -------------------------------------
+/* --------------------------------------------------------------------
+   🔄 SYNC: Deletar apólice (V2)
+-------------------------------------------------------------------- */
 exports.syncApoliceDelete = onDocumentDeleted(
   {
     document: "{tipo}/{refId}/apolices/{apoliceId}",
     region: "us-central1",
   },
   async (event) => {
-    const params = event.params;
-    const apoliceId = params.apoliceId;
+    const apoliceId = event.params.apoliceId;
 
     await db.collection("todasApolices").doc(apoliceId).delete();
 
@@ -80,17 +85,17 @@ exports.syncApoliceDelete = onDocumentDeleted(
   }
 );
 
-// -------------------------------------
-// ⏰ ALERTA DE RENOVAÇÃO (V2)
-// Executa diariamente às 05:00 NYC time
-// -------------------------------------
+/* --------------------------------------------------------------------
+   ⏰ ALERTA DE RENOVAÇÃO (V2)
+   Executa diariamente às 05:00 NYC time
+-------------------------------------------------------------------- */
 exports.alertaRenovacao = onSchedule(
   {
     schedule: "0 5 * * *",
     timeZone: "America/New_York",
     region: "us-central1",
   },
-  async (event) => {
+  async () => {
     const hoje = new Date();
     const limite = new Date();
     limite.setDate(limite.getDate() + 30);
