@@ -124,3 +124,64 @@ exports.alertaRenovacao = onSchedule(
     }
   }
 );
+// -------------------------------------
+// 🔄 Converter LEAD -> CLIENTE quando fechar
+// -------------------------------------
+
+exports.createClientOnLeadClose = onDocumentUpdated(
+  {
+    document: "leads/{leadId}",
+    region: "us-central1",
+  },
+  async (event) => {
+    const antes = event.data.before.data();
+    const depois = event.data.after.data();
+    const leadId = event.params.leadId;
+
+    // Só executa quando muda para FECHADO
+    if (antes.status === "fechado") return;
+    if (depois.status !== "fechado") return;
+
+    console.log("🚀 Lead fechado, criando cliente…", leadId);
+
+    // Evitar duplicação — verifica se já existe cliente com email igual
+    const email = depois.email || null;
+
+    if (email) {
+      const ref = await db
+        .collection("clientes")
+        .where("email", "==", email)
+        .limit(1)
+        .get();
+
+      if (!ref.empty) {
+        console.log("⚠ Cliente já existe, não duplicar:", email);
+
+        // Só marcamos vínculo
+        await db.collection("clientes").doc(ref.docs[0].id).update({
+          convertidoDeLead: leadId,
+          atualizadoEm: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        return;
+      }
+    }
+
+    // Criar novo cliente
+    await db.collection("clientes").add({
+      nome: depois.nome || "",
+      telefone: depois.telefone || "",
+      email: email,
+      seguradora: depois.seguradora || "",
+      origem: depois.origem || "",
+      agente: depois.agente || "",
+      primeiroContato: depois.primeiroContato || null,
+      observacoes: depois.observacoes || "",
+      convertidoDeLead: leadId,
+      criadoEm: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    console.log("✔ Cliente criado com sucesso!");
+  }
+);
+

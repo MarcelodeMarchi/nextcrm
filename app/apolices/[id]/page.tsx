@@ -2,35 +2,68 @@
 
 import { useEffect, useState } from "react";
 import Layout from "@/components/Layout";
+import { useParams, useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
-import { useRouter, useParams } from "next/navigation";
+import {
+  doc,
+  getDoc,
+  deleteDoc,
+} from "firebase/firestore";
 import Link from "next/link";
 
-export default function ApoliceDetalhe() {
+export default function ApolicePage() {
   const { id } = useParams();
   const router = useRouter();
+
   const [apolice, setApolice] = useState<any>(null);
+  const [cliente, setCliente] = useState<any>(null);
 
   useEffect(() => {
     const load = async () => {
       const snap = await getDoc(doc(db, "todasApolices", id as string));
-      if (!snap.exists()) {
-        router.push("/apolices");
-        return;
-      }
-      setApolice({ id, ...snap.data() });
-    };
-    load();
-  }, [id, router]);
 
-  if (!apolice) {
-    return (
-      <Layout>
-        <p>Carregando apólice...</p>
-      </Layout>
-    );
-  }
+      if (snap.exists()) {
+        const dados = { id, ...snap.data() };
+        setApolice(dados);
+
+        // Carregar dados do cliente vinculado
+        if (dados.refTipo && dados.refId) {
+          const col = dados.refTipo === "lead" ? "leads" : "clientes";
+          const snapC = await getDoc(doc(db, col, dados.refId));
+
+          if (snapC.exists()) {
+            setCliente({ id: dados.refId, ...snapC.data() });
+          }
+        }
+      }
+    };
+
+    load();
+  }, [id]);
+
+  const excluir = async () => {
+    if (!confirm("Excluir esta apólice?")) return;
+
+    // 1. remove da coleção global
+    await deleteDoc(doc(db, "todasApolices", id as string));
+
+    // 2. remove da subcoleção correta
+    if (apolice) {
+      const col = apolice.refTipo === "lead" ? "leads" : "clientes";
+      await deleteDoc(doc(db, col, apolice.refId, "apolices", id as string));
+    }
+
+    alert("Apólice excluída.");
+    router.push("/apolices");
+  };
+
+  if (!apolice) return <Layout>Carregando apólice...</Layout>;
+
+  const format = (d: any) => {
+    if (!d) return "-";
+    const date = d.toDate ? d.toDate() : new Date(d);
+    return date.toLocaleDateString("pt-BR");
+  };
 
   return (
     <Layout>
@@ -38,64 +71,73 @@ export default function ApoliceDetalhe() {
         Apólice {apolice.numero}
       </h1>
 
-      <div className="space-y-3 bg-white border rounded-lg p-5 max-w-2xl">
+      <div className="bg-white border rounded shadow p-4 space-y-4 max-w-xl">
 
-        <p><strong>Seguradora:</strong> {apolice.seguradora}</p>
+        {/* Número */}
+        <p><strong>Número:</strong> {apolice.numero}</p>
+
+        {/* Tipo */}
         <p><strong>Tipo:</strong> {apolice.tipo}</p>
+
+        {/* Seguradora */}
+        <p><strong>Seguradora:</strong> {apolice.seguradora}</p>
+
+        {/* Prêmio */}
         <p>
           <strong>Prêmio:</strong>{" "}
-          {apolice.moeda === "USD" ? "$" : "R$"} {apolice.premio}
+          {apolice.moeda === "USD" ? "$" : "R$"}
+          {apolice.premio}
         </p>
 
+        {/* Vigência */}
         <p>
-          <strong>Vigência:</strong> 
-          {apolice.inicioVigencia?.toDate?.().toLocaleDateString()} 
-          {" → "} 
-          {apolice.fimVigencia?.toDate?.().toLocaleDateString()}
+          <strong>Vigência:</strong> {format(apolice.inicioVigencia)} →{" "}
+          {format(apolice.fimVigencia)}
         </p>
 
-        <Link
-          href={`/apolices/${apolice.id}/editar`}
-          className="px-4 py-2 bg-black text-white rounded-md"
-          >
-          Editar Apólice
-        </Link>
-<button
-  onClick={async () => {
-    if (!confirm("Tem certeza que deseja excluir esta apólice? Essa ação não pode ser desfeita.")) {
-      return;
-    }
-
-    // Chama a função de exclusão
-    await fetch(`/api/apolices/${apolice.id}`, { method: "DELETE" });
-    alert("Apólice excluída com sucesso!");
-    router.push("/apolices");
-  }}
-  className="px-4 py-2 bg-red-600 text-white rounded ml-4"
->
-  Excluir Apólice
-</button>
-
-        <p>
-          <strong>Cliente:</strong>{" "}
-          <Link
-            className="text-blue-600"
-            href={`/${apolice.refTipo === "lead" ? "leads" : "clientes"}/${apolice.refId}`}
-          >
-            {apolice.refNome}
-          </Link>
-        </p>
-
+        {/* Notas */}
         {apolice.notas && (
-          <p><strong>Notas:</strong> {apolice.notas}</p>
+          <p>
+            <strong>Notas:</strong> {apolice.notas}
+          </p>
         )}
 
-      </div>
+        {/* CLIENTE / LEAD VINCULADO */}
+        {cliente && (
+          <div className="border-t pt-4">
+            <h2 className="text-lg font-semibold mb-2">
+              Dados do {apolice.refTipo === "lead" ? "Lead" : "Cliente"}
+            </h2>
 
-      <div className="mt-6">
-        <button className="px-4 py-2 bg-black text-white rounded">
-          Editar (em breve)
-        </button>
+            <p><strong>Nome:</strong> {cliente.nome}</p>
+            <p><strong>Telefone:</strong> {cliente.telefone}</p>
+            <p><strong>Email:</strong> {cliente.email}</p>
+
+            <Link
+              href={`/${apolice.refTipo === "lead" ? "leads" : "clientes"}/${cliente.id}`}
+              className="text-blue-600 underline mt-2 inline-block"
+            >
+              Abrir Cadastro →
+            </Link>
+          </div>
+        )}
+
+        {/* BOTÕES */}
+        <div className="flex gap-3 mt-4">
+          <Link
+            href={`/apolices/${id}/editar`}
+            className="px-4 py-2 bg-black text-white rounded"
+          >
+            Editar
+          </Link>
+
+          <button
+            onClick={excluir}
+            className="px-4 py-2 bg-red-600 text-white rounded"
+          >
+            Excluir Apólice
+          </button>
+        </div>
       </div>
     </Layout>
   );

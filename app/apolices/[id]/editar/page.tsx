@@ -10,15 +10,16 @@ import {
   updateDoc,
 } from "firebase/firestore";
 
-export default function EditarApolicePage() {
+export default function EditarApolice() {
   const { id } = useParams();
   const router = useRouter();
 
-  const [loading, setLoading] = useState(true);
   const [apolice, setApolice] = useState<any>(null);
+  const [cliente, setCliente] = useState<any>(null);
 
+  // Campos editáveis
   const [numero, setNumero] = useState("");
-  const [tipo, setTipo] = useState("");
+  const [tipo, setTipo] = useState("vida");
   const [seguradora, setSeguradora] = useState("");
   const [premio, setPremio] = useState("");
   const [moeda, setMoeda] = useState("USD");
@@ -26,42 +27,52 @@ export default function EditarApolicePage() {
   const [fim, setFim] = useState("");
   const [notas, setNotas] = useState("");
 
-  // Carregar dados da apólice
   useEffect(() => {
-    const carregar = async () => {
+    const load = async () => {
       const ref = doc(db, "todasApolices", id as string);
       const snap = await getDoc(ref);
 
-      if (!snap.exists()) {
-        router.replace("/apolices");
-        return;
-      }
+      if (!snap.exists()) return;
 
-      const data = snap.data();
-      setApolice({ id, ...data });
+      const dados = { id, ...snap.data() };
+      setApolice(dados);
 
-      // Preencher formulário
-      setNumero(data.numero);
-      setTipo(data.tipo);
-      setSeguradora(data.seguradora);
-      setPremio(String(data.premio));
-      setMoeda(data.moeda);
+      // Preencher campos
+      setNumero(dados.numero || "");
+      setTipo(dados.tipo || "vida");
+      setSeguradora(dados.seguradora || "");
+      setPremio(dados.premio || "");
+      setMoeda(dados.moeda || "USD");
       setInicio(
-        data.inicioVigencia?.toDate?.().toISOString().substring(0, 10) || ""
+        dados.inicioVigencia
+          ? new Date(dados.inicioVigencia.toDate()).toISOString().slice(0, 10)
+          : ""
       );
       setFim(
-        data.fimVigencia?.toDate?.().toISOString().substring(0, 10) || ""
+        dados.fimVigencia
+          ? new Date(dados.fimVigencia.toDate()).toISOString().slice(0, 10)
+          : ""
       );
-      setNotas(data.notas || "");
+      setNotas(dados.notas || "");
 
-      setLoading(false);
+      // Dados do cliente
+      if (dados.refTipo && dados.refId) {
+        const col = dados.refTipo === "lead" ? "leads" : "clientes";
+        const snapC = await getDoc(doc(db, col, dados.refId));
+
+        if (snapC.exists()) {
+          setCliente({ id: dados.refId, ...snapC.data() });
+        }
+      }
     };
 
-    carregar();
-  }, [id, router]);
+    load();
+  }, [id]);
 
   const salvar = async () => {
-    const novo = {
+    if (!apolice) return;
+
+    const atualizado = {
       numero,
       tipo,
       seguradora,
@@ -72,37 +83,32 @@ export default function EditarApolicePage() {
       notas,
     };
 
-    // Atualizar na coleção unificada
-    await updateDoc(doc(db, "todasApolices", id as string), novo);
+    // Atualizar coleção global
+    await updateDoc(doc(db, "todasApolices", id as string), atualizado);
 
-    // Atualizar também na coleção do lead/cliente
+    // Atualizar subcoleção (cliente ou lead)
+    const col = apolice.refTipo === "lead" ? "leads" : "clientes";
+
     await updateDoc(
-      doc(db, apolice.refTipo === "lead" ? "leads" : "clientes", apolice.refId, "apolices", id as string),
-      novo
+      doc(db, col, apolice.refId, "apolices", id as string),
+      atualizado
     );
 
     alert("Apólice atualizada com sucesso!");
     router.push(`/apolices/${id}`);
   };
 
-  if (loading) {
-    return (
-      <Layout>
-        <p>Carregando...</p>
-      </Layout>
-    );
-  }
+  if (!apolice) return <Layout>Carregando...</Layout>;
 
   return (
     <Layout>
-      <h1 className="text-2xl font-bold mb-6">
-        Editar Apólice — {apolice.numero}
-      </h1>
+      <h1 className="text-2xl font-bold mb-6">Editar Apólice</h1>
 
-      <div className="space-y-4 max-w-lg">
+      <div className="bg-white border rounded shadow p-4 space-y-4 max-w-xl">
 
+        {/* Número */}
         <div>
-          <label className="block text-sm font-medium">Número</label>
+          <label>Número</label>
           <input
             className="border rounded px-3 py-2 w-full"
             value={numero}
@@ -110,17 +116,9 @@ export default function EditarApolicePage() {
           />
         </div>
 
+        {/* Tipo */}
         <div>
-          <label className="block text-sm font-medium">Seguradora</label>
-          <input
-            className="border rounded px-3 py-2 w-full"
-            value={seguradora}
-            onChange={(e) => setSeguradora(e.target.value)}
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium">Tipo</label>
+          <label>Tipo</label>
           <select
             className="border rounded px-3 py-2 w-full"
             value={tipo}
@@ -133,11 +131,27 @@ export default function EditarApolicePage() {
           </select>
         </div>
 
+        {/* Seguradora */}
+        <div>
+          <label>Seguradora</label>
+          <input
+            list="seguradoras"
+            className="border rounded px-3 py-2 w-full"
+            value={seguradora}
+            onChange={(e) => setSeguradora(e.target.value)}
+          />
+
+          <datalist id="seguradoras">
+            <option value="Pan American" />
+            <option value="National" />
+          </datalist>
+        </div>
+
+        {/* Prêmio / moeda */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium">Prêmio</label>
+            <label>Prêmio</label>
             <input
-              type="number"
               className="border rounded px-3 py-2 w-full"
               value={premio}
               onChange={(e) => setPremio(e.target.value)}
@@ -145,7 +159,7 @@ export default function EditarApolicePage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium">Moeda</label>
+            <label>Moeda</label>
             <select
               className="border rounded px-3 py-2 w-full"
               value={moeda}
@@ -157,9 +171,10 @@ export default function EditarApolicePage() {
           </div>
         </div>
 
+        {/* Vigência */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium">Início da Vigência</label>
+            <label>Início da Vigência</label>
             <input
               type="date"
               className="border rounded px-3 py-2 w-full"
@@ -169,7 +184,7 @@ export default function EditarApolicePage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium">Fim da Vigência</label>
+            <label>Fim da Vigência</label>
             <input
               type="date"
               className="border rounded px-3 py-2 w-full"
@@ -179,22 +194,33 @@ export default function EditarApolicePage() {
           </div>
         </div>
 
+        {/* Notas */}
         <div>
-          <label className="block text-sm font-medium">Notas</label>
+          <label>Notas</label>
           <textarea
             className="border rounded px-3 py-2 w-full"
+            rows={4}
             value={notas}
             onChange={(e) => setNotas(e.target.value)}
           />
         </div>
 
-        <button
-          onClick={salvar}
-          className="px-4 py-2 bg-black text-white rounded"
-        >
-          Salvar Alterações
-        </button>
+        {/* Botões */}
+        <div className="flex gap-3">
+          <button
+            onClick={salvar}
+            className="px-4 py-2 bg-black text-white rounded"
+          >
+            Salvar
+          </button>
 
+          <button
+            onClick={() => router.push(`/apolices/${id}`)}
+            className="px-4 py-2 bg-gray-300 rounded"
+          >
+            Cancelar
+          </button>
+        </div>
       </div>
     </Layout>
   );

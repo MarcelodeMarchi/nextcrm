@@ -4,192 +4,171 @@ import { useEffect, useState } from "react";
 import Layout from "@/components/Layout";
 import { useParams, useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
 
-export default function LeadDetalhePage() {
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  deleteDoc,
+} from "firebase/firestore";
+
+export default function LeadPage() {
   const { id } = useParams();
   const router = useRouter();
 
   const [lead, setLead] = useState<any>(null);
 
-  const [nome, setNome] = useState("");
-  const [telefone, setTelefone] = useState("");
-  const [email, setEmail] = useState("");
-  const [status, setStatus] = useState("novo");
-
-  const [seguradora, setSeguradora] = useState("");
-  const [origem, setOrigem] = useState("");
-  const [agente, setAgente] = useState("");
-  const [primeiroContato, setPrimeiroContato] = useState("");
-  const [observacoes, setObservacoes] = useState("");
-
   useEffect(() => {
-    const fetchData = async () => {
+    const load = async () => {
       const snap = await getDoc(doc(db, "leads", id as string));
       if (snap.exists()) {
-        const data = snap.data();
-        setLead({ id, ...data });
-
-        setNome(data.nome || "");
-        setTelefone(data.telefone || "");
-        setEmail(data.email || "");
-        setStatus(data.status || "novo");
-
-        setSeguradora(data.seguradora || "");
-        setOrigem(data.origem || "");
-        setAgente(data.agente || "");
-        setPrimeiroContato(
-          data.primeiroContato
-            ? new Date(data.primeiroContato.seconds * 1000)
-                .toISOString()
-                .split("T")[0]
-            : ""
-        );
-        setObservacoes(data.observacoes || "");
+        setLead({ id, ...snap.data() });
       }
     };
 
-    fetchData();
+    load();
   }, [id]);
 
   const salvar = async () => {
-    await updateDoc(doc(db, "leads", id as string), {
-      nome,
-      telefone,
-      email,
-      status,
-      seguradora,
-      origem,
-      agente,
-      observacoes,
+    if (!lead) return;
 
-      primeiroContato: primeiroContato ? new Date(primeiroContato) : null,
+    await updateDoc(doc(db, "leads", id as string), {
+      nome: lead.nome || "",
+      telefone: lead.telefone || "",
+      email: lead.email || "",
+      seguradora: lead.seguradora || "",
+      origem: lead.origem || "",
+      agente: lead.agente || "",
+      status: lead.status || "novo",
+      primeiroContato: lead.primeiroContato || null,
+      observacoes: lead.observacoes || "",
     });
 
     alert("Lead atualizado com sucesso!");
+  };
+
+  const excluir = async () => {
+    if (!confirm("Tem certeza que deseja excluir este lead?")) return;
+
+    await deleteDoc(doc(db, "leads", id as string));
+
+    alert("Lead excluído com sucesso!");
     router.push("/leads");
   };
 
-  if (!lead) return <Layout>Carregando...</Layout>;
+  if (!lead) return <Layout>Carregando lead...</Layout>;
 
   return (
     <Layout>
       <h1 className="text-2xl font-bold mb-6">Lead — {lead.nome}</h1>
 
-      <div className="grid grid-cols-2 gap-6 max-w-3xl">
+      <div className="space-y-4 max-w-xl bg-white border shadow p-4 rounded">
 
-        {/* Nome */}
+        {/* NOME */}
         <div>
           <label>Nome</label>
           <input
-            className="border p-2 rounded w-full"
-            value={nome}
-            onChange={(e) => setNome(e.target.value)}
+            className="border rounded w-full p-2"
+            value={lead.nome}
+            onChange={(e) => setLead({ ...lead, nome: e.target.value })}
           />
         </div>
 
-        {/* Telefone */}
+        {/* TELEFONE */}
         <div>
           <label>Telefone</label>
           <input
-            className="border p-2 rounded w-full"
-            value={telefone}
-            onChange={(e) => setTelefone(e.target.value)}
+            className="border rounded w-full p-2"
+            value={lead.telefone}
+            onChange={(e) => setLead({ ...lead, telefone: e.target.value })}
           />
         </div>
 
-        {/* Email */}
+        {/* EMAIL */}
         <div>
-          <label>E-mail</label>
+          <label>Email</label>
           <input
-            className="border p-2 rounded w-full"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            className="border rounded w-full p-2"
+            value={lead.email}
+            onChange={(e) => setLead({ ...lead, email: e.target.value })}
           />
         </div>
 
-        {/* Status */}
+        {/* SEGURADORA */}
+        <div>
+          <label>Seguradora</label>
+          <select
+            className="border rounded w-full p-2"
+            value={lead.seguradora}
+            onChange={(e) => setLead({ ...lead, seguradora: e.target.value })}
+          >
+            <option value="">Selecionar</option>
+            <option value="Pan American">Pan American</option>
+            <option value="National">National</option>
+          </select>
+        </div>
+
+        {/* STATUS */}
         <div>
           <label>Status</label>
           <select
-            className="border p-2 rounded w-full"
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
+            className="border rounded w-full p-2"
+            value={lead.status}
+            onChange={(e) => setLead({ ...lead, status: e.target.value })}
           >
             <option value="novo">Novo</option>
             <option value="contato">Em Contato</option>
             <option value="proposta">Proposta</option>
             <option value="fechado">Fechado</option>
           </select>
+          <p className="text-xs text-gray-500">
+            Quando definir como <strong>Fechado</strong>, o sistema criará automaticamente um cliente.
+          </p>
         </div>
 
-        {/* Seguradora com datalist */}
+        {/* PRIMEIRO CONTATO */}
         <div>
-          <label>Seguradora (livre, com sugestões)</label>
-          <input
-            list="listaSeguradoras"
-            className="border p-2 rounded w-full"
-            value={seguradora}
-            onChange={(e) => setSeguradora(e.target.value)}
-            placeholder="Ex.: Pan American"
-          />
-
-          <datalist id="listaSeguradoras">
-            <option value="Pan American" />
-            <option value="National" />
-          </datalist>
-        </div>
-
-        {/* Origem */}
-        <div>
-          <label>Origem</label>
-          <input
-            className="border p-2 rounded w-full"
-            value={origem}
-            onChange={(e) => setOrigem(e.target.value)}
-            placeholder="Instagram, WhatsApp..."
-          />
-        </div>
-
-        {/* Agente */}
-        <div>
-          <label>Agente</label>
-          <input
-            className="border p-2 rounded w-full"
-            value={agente}
-            onChange={(e) => setAgente(e.target.value)}
-          />
-        </div>
-
-        {/* Primeiro contato */}
-        <div>
-          <label>Data do 1º Contato</label>
+          <label>Data do Primeiro Contato</label>
           <input
             type="date"
-            className="border p-2 rounded w-full"
-            value={primeiroContato}
-            onChange={(e) => setPrimeiroContato(e.target.value)}
+            className="border rounded w-full p-2"
+            value={lead.primeiroContato || ""}
+            onChange={(e) =>
+              setLead({ ...lead, primeiroContato: e.target.value })
+            }
           />
         </div>
 
-        {/* Observações */}
-        <div className="col-span-2">
+        {/* OBSERVAÇÕES */}
+        <div>
           <label>Observações</label>
           <textarea
-            className="border p-2 rounded w-full min-h-[120px]"
-            value={observacoes}
-            onChange={(e) => setObservacoes(e.target.value)}
+            className="border rounded w-full p-2"
+            rows={4}
+            value={lead.observacoes}
+            onChange={(e) =>
+              setLead({ ...lead, observacoes: e.target.value })
+            }
           />
         </div>
 
-      </div>
+        {/* BOTÕES */}
+        <div className="flex gap-3 mt-4">
+          <button
+            onClick={salvar}
+            className="px-4 py-2 rounded bg-black text-white"
+          >
+            Salvar
+          </button>
 
-      <button
-        onClick={salvar}
-        className="mt-6 px-4 py-2 bg-black text-white rounded"
-      >
-        Salvar Alterações
-      </button>
+          <button
+            onClick={excluir}
+            className="px-4 py-2 rounded bg-red-600 text-white"
+          >
+            Excluir Lead
+          </button>
+        </div>
+      </div>
     </Layout>
   );
 }
