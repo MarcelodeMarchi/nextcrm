@@ -5,132 +5,179 @@ import Layout from "@/components/Layout";
 import { useParams, useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
 import {
-  collection,
   doc,
   getDoc,
-  onSnapshot,
-  orderBy,
-  query
+  updateDoc,
+  serverTimestamp,
 } from "firebase/firestore";
-import Link from "next/link";
 
-export default function ClienteDetalhe() {
+export default function ClientePage() {
   const { id } = useParams();
   const router = useRouter();
 
   const [cliente, setCliente] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [apolices, setApolices] = useState<any[]>([]);
+
+  const [nome, setNome] = useState("");
+  const [telefone, setTelefone] = useState("");
+  const [email, setEmail] = useState("");
+
+  const [seguradora, setSeguradora] = useState("");
+  const [origem, setOrigem] = useState("");
+  const [agente, setAgente] = useState("");
+
+  const [primeiroContato, setPrimeiroContato] = useState("");
+  const [observacoes, setObservacoes] = useState("");
 
   useEffect(() => {
-    const carregar = async () => {
-      const ref = doc(db, "clientes", id as string);
-      const snap = await getDoc(ref);
+    const load = async () => {
+      const snap = await getDoc(doc(db, "clientes", id as string));
+      if (snap.exists()) {
+        const data = snap.data();
+        setCliente({ id, ...data });
 
-      if (!snap.exists()) {
-        router.replace("/clientes");
-        return;
+        setNome(data.nome || "");
+        setTelefone(data.telefone || "");
+        setEmail(data.email || "");
+
+        setSeguradora(data.seguradora || "");
+        setOrigem(data.origem || "");
+        setAgente(data.agente || "");
+
+        setPrimeiroContato(
+          data.primeiroContato
+            ? new Date(data.primeiroContato.toDate())
+                .toISOString()
+                .substring(0, 10)
+            : ""
+        );
+
+        setObservacoes(data.observacoes || "");
       }
-
-      setCliente({ id, ...snap.data() });
-      setLoading(false);
     };
 
-    carregar();
-  }, [id, router]);
-
-  useEffect(() => {
-    if (!id) return;
-
-    const q = query(
-      collection(db, "clientes", id as string, "apolices"),
-      orderBy("inicioVigencia", "desc")
-    );
-
-    const unsub = onSnapshot(q, (snap) => {
-      setApolices(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-    });
-
-    return () => unsub();
+    load();
   }, [id]);
 
-  if (loading) {
-    return (
-      <Layout>
-        <p>Carregando...</p>
-      </Layout>
-    );
-  }
+  const salvar = async () => {
+    await updateDoc(doc(db, "clientes", id as string), {
+      nome,
+      telefone,
+      email,
+      seguradora,
+      origem,
+      agente,
+      primeiroContato: primeiroContato ? new Date(primeiroContato) : null,
+      observacoes,
+      atualizadoEm: serverTimestamp(),
+    });
+
+    alert("Cliente atualizado!");
+  };
+
+  if (!cliente) return <Layout>Carregando...</Layout>;
 
   return (
     <Layout>
-      {/* Cabeçalho */}
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold">Cliente — {cliente.nome}</h1>
+      <h1 className="text-2xl font-bold mb-6">Cliente — {nome}</h1>
 
-        <Link
-          href={`/clientes/${cliente.id}/nova-apolice`}
-          className="px-4 py-2 bg-black text-white rounded-md text-sm"
+      <div className="space-y-4 max-w-xl">
+
+        {/* Nome */}
+        <div>
+          <label>Nome</label>
+          <input
+            className="border rounded px-3 py-2 w-full"
+            value={nome}
+            onChange={(e) => setNome(e.target.value)}
+          />
+        </div>
+
+        {/* Telefone */}
+        <div>
+          <label>Telefone</label>
+          <input
+            className="border rounded px-3 py-2 w-full"
+            value={telefone}
+            onChange={(e) => setTelefone(e.target.value)}
+          />
+        </div>
+
+        {/* Email */}
+        <div>
+          <label>Email</label>
+          <input
+            className="border rounded px-3 py-2 w-full"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
+
+        {/* Seguradora com sugestões */}
+        <div>
+          <label>Seguradora</label>
+          <input
+            list="lista-seguradoras"
+            className="border rounded px-3 py-2 w-full"
+            value={seguradora}
+            onChange={(e) => setSeguradora(e.target.value)}
+          />
+          <datalist id="lista-seguradoras">
+            <option value="Pan American" />
+            <option value="National" />
+          </datalist>
+        </div>
+
+        {/* Origem */}
+        <div>
+          <label>Origem</label>
+          <input
+            className="border rounded px-3 py-2 w-full"
+            value={origem}
+            onChange={(e) => setOrigem(e.target.value)}
+            placeholder="Ex: Instagram, Indicação..."
+          />
+        </div>
+
+        {/* Agente */}
+        <div>
+          <label>Agente</label>
+          <input
+            className="border rounded px-3 py-2 w-full"
+            value={agente}
+            onChange={(e) => setAgente(e.target.value)}
+            placeholder="Ex: Marcelo, Juliana..."
+          />
+        </div>
+
+        {/* Primeiro Contato */}
+        <div>
+          <label>Data do primeiro contato</label>
+          <input
+            type="date"
+            className="border rounded px-3 py-2 w-full"
+            value={primeiroContato}
+            onChange={(e) => setPrimeiroContato(e.target.value)}
+          />
+        </div>
+
+        {/* Observações */}
+        <div>
+          <label>Observações</label>
+          <textarea
+            className="border rounded px-3 py-2 w-full"
+            value={observacoes}
+            onChange={(e) => setObservacoes(e.target.value)}
+          />
+        </div>
+
+        {/* Botão salvar */}
+        <button
+          onClick={salvar}
+          className="px-4 py-2 bg-black text-white rounded"
         >
-          Nova Apólice
-        </Link>
-      </div>
+          Salvar
+        </button>
 
-      {/* Dados básicos */}
-      <div className="bg-white p-4 rounded-lg shadow mb-10">
-        <p><strong>Telefone:</strong> {cliente.telefone}</p>
-        <p><strong>Email:</strong> {cliente.email || "—"}</p>
-      </div>
-
-      {/* Lista de Apólices */}
-      <h2 className="text-xl font-bold mb-3">Apólices</h2>
-
-      <div className="bg-white rounded-lg shadow border">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-gray-100 text-left">
-              <th className="p-3">Número</th>
-              <th className="p-3">Tipo</th>
-              <th className="p-3">Seguradora</th>
-              <th className="p-3">Prêmio</th>
-              <th className="p-3">Vigência</th>
-              <th className="p-3">Ações</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {apolices.map((a) => (
-              <tr key={a.id} className="border-t">
-                <td className="p-3">{a.numero}</td>
-                <td className="p-3">{a.tipo}</td>
-                <td className="p-3">{a.seguradora}</td>
-                <td className="p-3">
-                  {a.moeda === "USD" ? "$" : "R$"} {a.premio}
-                </td>
-                <td className="p-3">
-                  {a.inicioVigencia?.toDate?.().toLocaleDateString()} —{" "}
-                  {a.fimVigencia?.toDate?.().toLocaleDateString()}
-                </td>
-                <td className="p-3">
-                  <Link
-                    href={`/apolices/${a.id}`}
-                    className="text-blue-600 hover:underline"
-                  >
-                    Abrir
-                  </Link>
-                </td>
-              </tr>
-            ))}
-
-            {apolices.length === 0 && (
-              <tr>
-                <td colSpan={6} className="p-4 text-center text-gray-500">
-                  Nenhuma apólice cadastrada.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
       </div>
     </Layout>
   );
