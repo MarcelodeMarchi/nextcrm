@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Layout from "@/components/Layout";
-import { db } from "@/lib/firebase";
 import Link from "next/link";
+import { db } from "@/lib/firebase";
 import {
   collection,
   onSnapshot,
@@ -21,7 +21,7 @@ import {
   Draggable,
 } from "@hello-pangea/dnd";
 
-// 🔹 Tipo do Lead
+// Tipos
 type Lead = {
   id: string;
   nome: string;
@@ -30,25 +30,27 @@ type Lead = {
   seguradora?: string;
   origem?: string;
   agente?: string;
-  status: string;
+  status: Status;
   ordem: number;
 };
 
-const COLUNAS: Record<string, string> = {
+type Status = "novo" | "contato" | "proposta" | "fechado";
+
+const COLUNAS: Record<Status, string> = {
   novo: "Novo",
   contato: "Em Contato",
   proposta: "Proposta Enviada",
   fechado: "Fechado",
 };
 
-const CORES_COLUNA: Record<string, string> = {
+const CORES_COLUNA: Record<Status, string> = {
   novo: "bg-blue-50",
   contato: "bg-yellow-50",
   proposta: "bg-purple-50",
   fechado: "bg-green-50",
 };
 
-const CORES_CARD: Record<string, string> = {
+const CORES_CARD: Record<Status, string> = {
   novo: "border-blue-300",
   contato: "border-yellow-300",
   proposta: "border-purple-300",
@@ -59,7 +61,6 @@ export default function LeadsKanban() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [busca, setBusca] = useState("");
 
-  // 📌 Carregar leads em ordem
   useEffect(() => {
     const q = query(collection(db, "leads"), orderBy("ordem", "asc"));
 
@@ -67,10 +68,7 @@ export default function LeadsKanban() {
       setLeads(
         snap.docs.map((d) => {
           const data = d.data() as Lead;
-          return {
-            ...data,
-            id: d.id, // Corrige duplicidade
-          };
+          return { ...data, id: d.id };
         })
       );
     });
@@ -78,7 +76,6 @@ export default function LeadsKanban() {
     return unsub;
   }, []);
 
-  // 🔍 Filtro de busca
   const leadsFiltrados = leads.filter((l) => {
     const termo = busca.toLowerCase();
     return (
@@ -88,16 +85,18 @@ export default function LeadsKanban() {
     );
   });
 
-  // 📌 Separar por coluna
-  const colunas = {
+  const colunas: Record<Status, Lead[]> = {
     novo: leadsFiltrados.filter((l) => l.status === "novo"),
     contato: leadsFiltrados.filter((l) => l.status === "contato"),
     proposta: leadsFiltrados.filter((l) => l.status === "proposta"),
     fechado: leadsFiltrados.filter((l) => l.status === "fechado"),
   };
 
-  // 🔄 Drag & Drop
-  const onDragEnd = async (result: any) => {
+  const onDragEnd = async (result: {
+    destination: { droppableId: Status; index: number } | null;
+    source: { droppableId: Status; index: number };
+    draggableId: string;
+  }) => {
     const { destination, source, draggableId } = result;
     if (!destination) return;
 
@@ -120,14 +119,11 @@ export default function LeadsKanban() {
     novaLista.splice(destination.index, 0, removido);
 
     novaLista.forEach(async (lead, index) => {
-      await updateDoc(doc(db, "leads", lead.id), {
-        ordem: index,
-      });
+      await updateDoc(doc(db, "leads", lead.id), { ordem: index });
     });
   };
 
-  // ➕ Criar lead
-  const criarLead = async (status: string) => {
+  const criarLead = async (status: Status) => {
     await addDoc(collection(db, "leads"), {
       nome: "Novo Lead",
       telefone: "",
@@ -155,59 +151,67 @@ export default function LeadsKanban() {
 
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="grid grid-cols-4 gap-4">
-          {Object.keys(COLUNAS).map((col) => (
-            <Droppable droppableId={col} key={col}>
-              {(provided) => (
-                <div
-                  className={`${CORES_COLUNA[col]} rounded-lg p-3 min-h-[600px]`}
-                  ref={provided.innerRef}
-                  {...provided.droppableProps}
-                >
-                  <div className="flex justify-between items-center mb-3">
-                    <h2 className="text-lg font-bold">
-                      {COLUNAS[col]} ({colunas[col].length})
-                    </h2>
+          {Object.keys(COLUNAS).map((col) => {
+            const coluna = col as Status;
 
-                    <button
-                      onClick={() => criarLead(col)}
-                      className="bg-black text-white px-2 py-1 rounded text-sm"
-                    >
-                      + Novo
-                    </button>
-                  </div>
+            return (
+              <Droppable droppableId={coluna} key={coluna}>
+                {(provided) => (
+                  <div
+                    className={`${CORES_COLUNA[coluna]} rounded-lg p-3 min-h-[600px]`}
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                  >
+                    <div className="flex justify-between items-center mb-3">
+                      <h2 className="text-lg font-bold">
+                        {COLUNAS[coluna]} ({colunas[coluna].length})
+                      </h2>
 
-                  {colunas[col].map((lead, index) => (
-                    <Draggable draggableId={lead.id} index={index} key={lead.id}>
-                      {(prov) => (
-                        <Link href={`/leads/${lead.id}`}>
-                          <div
-                            ref={prov.innerRef}
-                            {...prov.draggableProps}
-                            {...prov.dragHandleProps}
-                            className={`bg-white border ${CORES_CARD[col]} shadow p-3 rounded mb-3 cursor-pointer`}
-                          >
-                            <p className="font-bold">{lead.nome}</p>
+                      <button
+                        onClick={() => criarLead(coluna)}
+                        className="bg-black text-white px-2 py-1 rounded text-sm"
+                      >
+                        + Novo
+                      </button>
+                    </div>
 
-                            <p className="text-xs text-gray-600">
-                              {lead.telefone || "Sem telefone"}
-                            </p>
+                    {colunas[coluna].map((lead, index) => (
+                      <Draggable
+                        draggableId={lead.id}
+                        index={index}
+                        key={lead.id}
+                      >
+                        {(prov) => (
+                          <Link href={`/leads/${lead.id}`}>
+                            <div
+                              ref={prov.innerRef}
+                              {...prov.draggableProps}
+                              {...prov.dragHandleProps}
+                              className={`bg-white border ${CORES_CARD[coluna]} shadow p-3 rounded mb-3 cursor-pointer`}
+                            >
+                              <p className="font-bold">{lead.nome}</p>
 
-                            <div className="text-xs text-gray-700 mt-2">
-                              <p><strong>Seguradora:</strong> {lead.seguradora || "—"}</p>
-                              <p><strong>Origem:</strong> {lead.origem || "—"}</p>
-                              <p><strong>Agente:</strong> {lead.agente || "—"}</p>
+                              <p className="text-xs text-gray-600">
+                                {lead.telefone || "Sem telefone"}
+                              </p>
+
+                              <div className="text-xs text-gray-700 mt-2">
+                                <p><strong>Seguradora:</strong> {lead.seguradora || "—"}</p>
+                                <p><strong>Origem:</strong> {lead.origem || "—"}</p>
+                                <p><strong>Agente:</strong> {lead.agente || "—"}</p>
+                              </div>
                             </div>
-                          </div>
-                        </Link>
-                      )}
-                    </Draggable>
-                  ))}
+                          </Link>
+                        )}
+                      </Draggable>
+                    ))}
 
-                  {provided.placeholder}
-                </div>
-              )}
-            </Droppable>
-          ))}
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            );
+          })}
         </div>
       </DragDropContext>
     </Layout>
