@@ -10,11 +10,26 @@ import {
   updateDoc,
 } from "firebase/firestore";
 
+// 🔹 Tipo da Apólice
+type Apolice = {
+  id: string;
+  numero: string;
+  tipo: string;
+  seguradora: string;
+  premio: number;
+  moeda: string;
+  inicioVigencia: any;
+  fimVigencia: any;
+  notas?: string;
+  refTipo: "lead" | "cliente";
+  refId: string;
+};
+
 export default function EditarApolice() {
   const { id } = useParams();
   const router = useRouter();
 
-  const [apolice, setApolice] = useState<any>(null);
+  const [apolice, setApolice] = useState<Apolice | null>(null);
   const [cliente, setCliente] = useState<any>(null);
 
   // Campos editáveis
@@ -34,34 +49,39 @@ export default function EditarApolice() {
 
       if (!snap.exists()) return;
 
-      const dados = { id, ...snap.data() };
-      setApolice(dados);
+      const dados = snap.data() as Apolice;
+      const ap = { id: id as string, ...dados };
 
-      // Preencher campos
-      setNumero(dados.numero || "");
-      setTipo(dados.tipo || "vida");
-      setSeguradora(dados.seguradora || "");
-      setPremio(dados.premio || "");
-      setMoeda(dados.moeda || "USD");
+      setApolice(ap);
+
+      // Preencher campos com segurança
+      setNumero(ap.numero || "");
+      setTipo(ap.tipo || "vida");
+      setSeguradora(ap.seguradora || "");
+      setPremio(String(ap.premio || ""));
+      setMoeda(ap.moeda || "USD");
+
       setInicio(
-        dados.inicioVigencia
-          ? new Date(dados.inicioVigencia.toDate()).toISOString().slice(0, 10)
+        ap.inicioVigencia
+          ? new Date(ap.inicioVigencia.toDate()).toISOString().slice(0, 10)
           : ""
       );
-      setFim(
-        dados.fimVigencia
-          ? new Date(dados.fimVigencia.toDate()).toISOString().slice(0, 10)
-          : ""
-      );
-      setNotas(dados.notas || "");
 
-      // Dados do cliente
-      if (dados.refTipo && dados.refId) {
-        const col = dados.refTipo === "lead" ? "leads" : "clientes";
-        const snapC = await getDoc(doc(db, col, dados.refId));
+      setFim(
+        ap.fimVigencia
+          ? new Date(ap.fimVigencia.toDate()).toISOString().slice(0, 10)
+          : ""
+      );
+
+      setNotas(ap.notas || "");
+
+      // Carregar cliente / lead vinculado
+      if (ap.refTipo && ap.refId) {
+        const col = ap.refTipo === "lead" ? "leads" : "clientes";
+        const snapC = await getDoc(doc(db, col, ap.refId));
 
         if (snapC.exists()) {
-          setCliente({ id: dados.refId, ...snapC.data() });
+          setCliente({ id: ap.refId, ...snapC.data() });
         }
       }
     };
@@ -86,7 +106,7 @@ export default function EditarApolice() {
     // Atualizar coleção global
     await updateDoc(doc(db, "todasApolices", id as string), atualizado);
 
-    // Atualizar subcoleção (cliente ou lead)
+    // Atualizar subcoleção (cliente/lead)
     const col = apolice.refTipo === "lead" ? "leads" : "clientes";
 
     await updateDoc(
