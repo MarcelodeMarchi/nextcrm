@@ -49,8 +49,12 @@ export default function EditarApolice() {
 
       if (!snap.exists()) return;
 
-      const dados = snap.data() as Apolice;
-      const ap = { ...dados, id: id as string };
+     const dataFS = snap.data() as any;
+
+     const dados = {
+     ...dataFS,
+     id: id as string,
+     };
 
       setApolice(ap);
 
