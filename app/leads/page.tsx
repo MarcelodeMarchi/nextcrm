@@ -57,10 +57,10 @@ export default function LeadsPage() {
           <tbody>
             {leads.map((lead) => (
               <tr key={lead.id} className="border-t">
-                <td classname="p-3">{lead.nome}</td>
-                <td classname="p-3">{lead.telefone}</td>
-                <td classname="p-3">{lead.status}</td>
-                <td classname="p-3">
+                <td className="p-3">{lead.nome}</td>
+                <td className="p-3">{lead.telefone}</td>
+                <td className="p-3">{lead.status}</td>
+                <td className="p-3">
                   <Link
                     href={`/leads/${lead.id}`}
                     className="text-blue-600 hover:underline"
