@@ -67,10 +67,14 @@ export default function LeadsKanban() {
 
     const unsub = onSnapshot(q, (snap) => {
       setLeads(
-        snap.docs.map((d) => ({
-          id: d.id,
-          ...(d.data() as Lead),
-        }))
+        snap.docs.map((d) => {
+          const data = d.data() as Omit<Lead, "id">;
+
+          return {
+            ...data,
+            id: d.id,
+          };
+        })
       );
     });
 
