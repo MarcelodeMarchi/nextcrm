@@ -4,36 +4,68 @@ import { useEffect, useState } from "react";
 import Layout from "@/components/Layout";
 import { useParams, useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
-import {
-  doc,
-  getDoc,
-  deleteDoc,
-} from "firebase/firestore";
-import Link from "next/link";
+import { doc, getDoc, deleteDoc } from "firebase/firestore";
+
+// Tipo da apólice
+type Apolice = {
+  id: string;
+  numero: string;
+  tipo: string;
+  seguradora: string;
+  premio: number;
+  moeda: string;
+  inicioVigencia: any;
+  fimVigencia: any;
+  notas?: string;
+
+  refTipo: "lead" | "cliente";
+  refId: string;
+  refNome?: string;
+};
 
 export default function ApolicePage() {
   const { id } = useParams();
   const router = useRouter();
 
-  const [apolice, setApolice] = useState<any>(null);
+  const [apolice, setApolice] = useState<Apolice | null>(null);
   const [cliente, setCliente] = useState<any>(null);
 
   useEffect(() => {
     const load = async () => {
-      const snap = await getDoc(doc(db, "todasApolices", id as string));
+      const ref = doc(db, "todasApolices", id as string);
+      const snap = await getDoc(ref);
+      if (!snap.exists()) return;
 
-      if (snap.exists()) {
-        const dados = { id, ...snap.data() };
-        setApolice(dados);
+      const raw = snap.data() as any;
 
-        // Carregar dados do cliente vinculado
-        if (dados.refTipo && dados.refId) {
-          const col = dados.refTipo === "lead" ? "leads" : "clientes";
-          const snapC = await getDoc(doc(db, col, dados.refId));
+      const ap: Apolice = {
+        id: id as string,
+        numero: raw.numero || "",
+        tipo: raw.tipo || "",
+        seguradora: raw.seguradora || "",
+        premio: raw.premio || 0,
+        moeda: raw.moeda || "USD",
+        inicioVigencia: raw.inicioVigencia || null,
+        fimVigencia: raw.fimVigencia || null,
+        notas: raw.notas || "",
 
-          if (snapC.exists()) {
-            setCliente({ id: dados.refId, ...snapC.data() });
-          }
+        refTipo: raw.refTipo,
+        refId: raw.refId,
+        refNome: raw.refNome || "",
+      };
+
+      setApolice(ap);
+
+      // Carregar o cliente vinculado
+      if (ap.refTipo && ap.refId) {
+        const col = ap.refTipo === "lead" ? "leads" : "clientes";
+        const snapC = await getDoc(doc(db, col, ap.refId));
+
+        if (snapC.exists()) {
+          setCliente({
+            id: ap.refId,
+            ...snapC.data(),
+          });
         }
       }
     };
@@ -41,101 +73,81 @@ export default function ApolicePage() {
     load();
   }, [id]);
 
-  const excluir = async () => {
-    if (!confirm("Excluir esta apólice?")) return;
+  const deletar = async () => {
+    if (!confirm("Tem certeza que deseja excluir esta apólice?")) return;
 
-    // 1. remove da coleção global
     await deleteDoc(doc(db, "todasApolices", id as string));
 
-    // 2. remove da subcoleção correta
     if (apolice) {
       const col = apolice.refTipo === "lead" ? "leads" : "clientes";
       await deleteDoc(doc(db, col, apolice.refId, "apolices", id as string));
     }
 
-    alert("Apólice excluída.");
+    alert("Apólice excluída!");
     router.push("/apolices");
   };
 
-  if (!apolice) return <Layout>Carregando apólice...</Layout>;
-
-  const format = (d: any) => {
-    if (!d) return "-";
-    const date = d.toDate ? d.toDate() : new Date(d);
-    return date.toLocaleDateString("pt-BR");
-  };
+  if (!apolice) return <Layout>Carregando...</Layout>;
 
   return (
     <Layout>
-      <h1 className="text-2xl font-bold mb-6">
-        Apólice {apolice.numero}
-      </h1>
+      <h1 className="text-2xl font-bold mb-6">Apólice #{apolice.numero}</h1>
 
-      <div className="bg-white border rounded shadow p-4 space-y-4 max-w-xl">
-
-        {/* Número */}
-        <p><strong>Número:</strong> {apolice.numero}</p>
-
-        {/* Tipo */}
+      <div className="bg-white border rounded shadow p-6 space-y-4 max-w-2xl">
+        
         <p><strong>Tipo:</strong> {apolice.tipo}</p>
-
-        {/* Seguradora */}
         <p><strong>Seguradora:</strong> {apolice.seguradora}</p>
+        <p><strong>Prêmio:</strong> {apolice.moeda} {apolice.premio}</p>
 
-        {/* Prêmio */}
         <p>
-          <strong>Prêmio:</strong>{" "}
-          {apolice.moeda === "USD" ? "$" : "R$"}
-          {apolice.premio}
+          <strong>Início Vigência:</strong>{" "}
+          {apolice.inicioVigencia?.toDate().toLocaleDateString()}
         </p>
 
-        {/* Vigência */}
         <p>
-          <strong>Vigência:</strong> {format(apolice.inicioVigencia)} →{" "}
-          {format(apolice.fimVigencia)}
+          <strong>Fim Vigência:</strong>{" "}
+          {apolice.fimVigencia?.toDate().toLocaleDateString()}
         </p>
 
-        {/* Notas */}
-        {apolice.notas && (
-          <p>
-            <strong>Notas:</strong> {apolice.notas}
-          </p>
-        )}
+        <p><strong>Notas:</strong> {apolice.notas || "—"}</p>
 
-        {/* CLIENTE / LEAD VINCULADO */}
+        <hr />
+
+        {/* Cliente / Lead vinculado */}
         {cliente && (
-          <div className="border-t pt-4">
-            <h2 className="text-lg font-semibold mb-2">
-              Dados do {apolice.refTipo === "lead" ? "Lead" : "Cliente"}
-            </h2>
+          <div className="bg-gray-50 p-4 rounded border">
+            <h2 className="font-semibold mb-2">Cliente / Lead vinculado</h2>
 
             <p><strong>Nome:</strong> {cliente.nome}</p>
             <p><strong>Telefone:</strong> {cliente.telefone}</p>
-            <p><strong>Email:</strong> {cliente.email}</p>
+            <p><strong>E-mail:</strong> {cliente.email}</p>
 
-            <Link
-              href={`/${apolice.refTipo === "lead" ? "leads" : "clientes"}/${cliente.id}`}
-              className="text-blue-600 underline mt-2 inline-block"
+            <button
+              className="mt-3 px-3 py-1 bg-black text-white rounded"
+              onClick={() =>
+                router.push(
+                  `/${apolice.refTipo === "lead" ? "leads" : "clientes"}/${cliente.id}`
+                )
+              }
             >
-              Abrir Cadastro →
-            </Link>
+              Abrir cadastro
+            </button>
           </div>
         )}
 
-        {/* BOTÕES */}
-        <div className="flex gap-3 mt-4">
-          <Link
-            href={`/apolices/${id}/editar`}
+        <div className="flex gap-3 mt-6">
+          <button
             className="px-4 py-2 bg-black text-white rounded"
+            onClick={() => router.push(`/apolices/${id}/editar`)}
           >
             Editar
-          </Link>
+          </button>
 
           <button
-            onClick={excluir}
-            className="px-4 py-2 bg-red-600 text-white rounded"
+            className="px-4 py-2 bg-red-500 text-white rounded"
+            onClick={deletar}
           >
-            Excluir Apólice
+            Excluir
           </button>
         </div>
       </div>
