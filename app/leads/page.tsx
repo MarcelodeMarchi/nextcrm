@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import Layout from "@/components/Layout";
 import { db } from "@/lib/firebase";
 import {
@@ -14,12 +15,23 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 
-import {
-  DragDropContext,
-  Droppable,
-  Draggable,
-} from "@hello-pangea/dnd";
+// 🔥 IMPORTAÇÃO DINÂMICA PARA EVITAR ERRO DO NEXT 16 (SSR)
+const DragDropContext = dynamic(
+  () => import("@hello-pangea/dnd").then((mod) => mod.DragDropContext),
+  { ssr: false }
+);
 
+const Droppable = dynamic(
+  () => import("@hello-pangea/dnd").then((mod) => mod.Droppable),
+  { ssr: false }
+);
+
+const Draggable = dynamic(
+  () => import("@hello-pangea/dnd").then((mod) => mod.Draggable),
+  { ssr: false }
+);
+
+// 📌 CONFIGURAÇÃO DAS COLUNAS
 const COLUNAS = {
   novo: "Novo",
   contato: "Em Contato",
@@ -27,6 +39,7 @@ const COLUNAS = {
   fechado: "Fechado",
 };
 
+// 🎨 CORES
 const CORES_COLUNA = {
   novo: "bg-blue-100",
   contato: "bg-yellow-100",
@@ -99,11 +112,7 @@ export default function LeadsKanban() {
     const statusOrigem = source.droppableId;
     const statusDestino = destination.droppableId;
 
-    const itemMovido = colunas[statusOrigem].find(
-      (l) => l.id === draggableId
-    );
-
-    // 🔄 MUDOU DE COLUNA → Atualiza status + ordem nova
+    // 🔄 MUDOU DE COLUNA
     if (statusOrigem !== statusDestino) {
       const novaOrdem = colunas[statusDestino].length;
 
@@ -120,7 +129,6 @@ export default function LeadsKanban() {
     const [removido] = novaLista.splice(source.index, 1);
     novaLista.splice(destination.index, 0, removido);
 
-    // salvar ordem de todos os itens da coluna
     novaLista.forEach(async (lead, index) => {
       await updateDoc(doc(db, "leads", lead.id), {
         ordem: index,
