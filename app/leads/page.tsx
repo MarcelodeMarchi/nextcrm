@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Layout from "@/components/Layout";
-import Link from "next/link";
 import { db } from "@/lib/firebase";
 import {
   collection,
@@ -26,28 +25,30 @@ type Lead = {
   nome: string;
   telefone: string;
   email: string;
-  status: "novo" | "contato" | "proposta" | "fechado";
   seguradora?: string;
   origem?: string;
   agente?: string;
+  status: string;
   ordem: number;
 };
 
-const COLUNAS = {
+const COLUNAS: Record<string, string> = {
   novo: "Novo",
   contato: "Em Contato",
-  proposta: "Proposta",
+  proposta: "Proposta Enviada",
   fechado: "Fechado",
 };
 
-const CORES_COLUNA = {
-  novo: "bg-blue-100",
-  contato: "bg-yellow-100",
-  proposta: "bg-purple-100",
-  fechado: "bg-green-100",
+// Cores suaves para as colunas
+const CORES_COLUNA: Record<string, string> = {
+  novo: "bg-blue-50",
+  contato: "bg-yellow-50",
+  proposta: "bg-purple-50",
+  fechado: "bg-green-50",
 };
 
-const CORES_CARD = {
+// Cores da borda do card
+const CORES_CARD: Record<string, string> = {
   novo: "border-blue-300",
   contato: "border-yellow-300",
   proposta: "border-purple-300",
@@ -58,48 +59,33 @@ export default function LeadsKanban() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [busca, setBusca] = useState("");
 
-  const [filtroSeguradora, setFiltroSeguradora] = useState("");
-  const [filtroOrigem, setFiltroOrigem] = useState("");
-  const [filtroAgente, setFiltroAgente] = useState("");
-
   useEffect(() => {
     const q = query(collection(db, "leads"), orderBy("ordem", "asc"));
 
     const unsub = onSnapshot(q, (snap) => {
       setLeads(
-        snap.docs.map((d) => {
-          const data = d.data() as Omit<Lead, "id">;
-
-          return {
-            ...data,
-            id: d.id,
-          };
-        })
+        snap.docs.map((d) => ({
+          id: d.id,
+          ...(d.data() as Lead),
+        }))
       );
     });
 
     return unsub;
   }, []);
 
+  // 🔍 Busca
   const leadsFiltrados = leads.filter((l) => {
     const termo = busca.toLowerCase();
-
-    const passaBusca =
+    return (
       l.nome?.toLowerCase().includes(termo) ||
       l.telefone?.includes(termo) ||
-      l.email?.toLowerCase().includes(termo);
-
-    const passaSeguradora =
-      !filtroSeguradora || l.seguradora === filtroSeguradora;
-
-    const passaOrigem = !filtroOrigem || l.origem === filtroOrigem;
-
-    const passaAgente = !filtroAgente || l.agente === filtroAgente;
-
-    return passaBusca && passaSeguradora && passaOrigem && passaAgente;
+      l.email?.toLowerCase().includes(termo)
+    );
   });
 
-  const colunas: Record<keyof typeof COLUNAS, Lead[]> = {
+  // Organizar por status
+  const colunas = {
     novo: leadsFiltrados.filter((l) => l.status === "novo"),
     contato: leadsFiltrados.filter((l) => l.status === "contato"),
     proposta: leadsFiltrados.filter((l) => l.status === "proposta"),
@@ -110,9 +96,10 @@ export default function LeadsKanban() {
     const { destination, source, draggableId } = result;
     if (!destination) return;
 
-    const statusOrigem = source.droppableId as keyof typeof colunas;
-    const statusDestino = destination.droppableId as keyof typeof colunas;
+    const statusOrigem = source.droppableId;
+    const statusDestino = destination.droppableId;
 
+    // Mudou de coluna
     if (statusOrigem !== statusDestino) {
       const novaOrdem = colunas[statusDestino].length;
 
@@ -124,6 +111,7 @@ export default function LeadsKanban() {
       return;
     }
 
+    // Reordenar dentro da mesma coluna
     const novaLista = Array.from(colunas[statusOrigem]);
     const [removido] = novaLista.splice(source.index, 1);
     novaLista.splice(destination.index, 0, removido);
@@ -135,91 +123,61 @@ export default function LeadsKanban() {
     });
   };
 
-  const criarLead = async (status: Lead["status"]) => {
-    await addDoc(collection(db, "leads"), {
+  // Criar lead direto na coluna
+  const criarLead = async (status: string) => {
+    const docRef = await addDoc(collection(db, "leads"), {
       nome: "Novo Lead",
       telefone: "",
       email: "",
-      status,
       seguradora: "",
       origem: "",
       agente: "",
+      status,
       ordem: colunas[status].length,
       criadoEm: serverTimestamp(),
     });
+
+    console.log("Lead criado:", docRef.id);
   };
 
   return (
     <Layout>
-      <h1 className="text-2xl font-bold mb-4">Leads — Pipeline Kanban</h1>
+      <h1 className="text-2xl font-bold mb-4">Leads — Pipeline</h1>
 
+      {/* Busca */}
       <input
         type="text"
-        placeholder="Buscar lead por nome, telefone..."
+        placeholder="Buscar lead por nome, telefone ou e-mail..."
         value={busca}
         onChange={(e) => setBusca(e.target.value)}
-        className="mb-4 w-full border p-3 rounded shadow"
+        className="mb-6 w-full border p-3 rounded shadow"
       />
-
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <select
-          className="border p-2 rounded"
-          value={filtroSeguradora}
-          onChange={(e) => setFiltroSeguradora(e.target.value)}
-        >
-          <option value="">Todas as seguradoras</option>
-          <option value="Prudential">Prudential</option>
-          <option value="Metlife">Metlife</option>
-          <option value="AIG">AIG</option>
-        </select>
-
-        <select
-          className="border p-2 rounded"
-          value={filtroOrigem}
-          onChange={(e) => setFiltroOrigem(e.target.value)}
-        >
-          <option value="">Todas as origens</option>
-          <option value="Instagram">Instagram</option>
-          <option value="WhatsApp">WhatsApp</option>
-          <option value="Indicação">Indicação</option>
-        </select>
-
-        <select
-          className="border p-2 rounded"
-          value={filtroAgente}
-          onChange={(e) => setFiltroAgente(e.target.value)}
-        >
-          <option value="">Todos os agentes</option>
-          <option value="Marcelo">Marcelo</option>
-          <option value="Juliana">Juliana</option>
-        </select>
-      </div>
 
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="grid grid-cols-4 gap-4">
-          {(
-            Object.keys(COLUNAS) as Array<keyof typeof COLUNAS>
-          ).map((col) => (
+          {Object.keys(COLUNAS).map((col) => (
             <Droppable droppableId={col} key={col}>
               {(provided) => (
                 <div
-                  className={`${CORES_COLUNA[col]} rounded-lg p-3 min-h-[500px]`}
+                  className={`${CORES_COLUNA[col]} rounded-lg p-3 min-h-[600px]`}
                   ref={provided.innerRef}
                   {...provided.droppableProps}
                 >
+                  {/* Título */}
                   <div className="flex justify-between items-center mb-3">
-                    <h2 className="text-lg font-semibold">
+                    <h2 className="text-lg font-bold text-gray-800">
                       {COLUNAS[col]} ({colunas[col].length})
                     </h2>
 
                     <button
                       onClick={() => criarLead(col)}
-                      className="bg-black text-white px-2 py-1 rounded"
+                      className="bg-black text-white px-2 py-1 rounded text-sm"
                     >
-                      ➕
+                      + Novo
                     </button>
                   </div>
 
+                  {/* Cards */}
                   {colunas[col].map((lead, index) => (
                     <Draggable
                       draggableId={lead.id}
@@ -227,22 +185,41 @@ export default function LeadsKanban() {
                       key={lead.id}
                     >
                       {(prov) => (
-                        <Link
-                          href={`/leads/${lead.id}`}
+                        <div
                           ref={prov.innerRef}
                           {...prov.draggableProps}
                           {...prov.dragHandleProps}
-                          className={`bg-white border ${CORES_CARD[col]} shadow p-3 rounded mb-3 cursor-pointer block`}
+                          className={`bg-white border ${CORES_CARD[col]} shadow p-3 rounded mb-3 cursor-pointer`}
                         >
-                          <p className="font-bold">{lead.nome}</p>
-                          <p className="text-sm text-gray-600">
-                            {lead.telefone}
+                          {/* Nome */}
+                          <p className="font-bold text-gray-900 text-sm">
+                            {lead.nome}
                           </p>
 
-                          <span className="text-xs text-gray-500">
-                            {lead.seguradora || "Sem seguradora"}
-                          </span>
-                        </Link>
+                          {/* Telefone */}
+                          <p className="text-xs text-gray-600 mb-2">
+                            {lead.telefone || "Sem telefone"}
+                          </p>
+
+                          <div className="text-xs text-gray-700 space-y-1">
+
+                            <p>
+                              <span className="font-semibold">Seguradora:</span>{" "}
+                              {lead.seguradora || "—"}
+                            </p>
+
+                            <p>
+                              <span className="font-semibold">Origem:</span>{" "}
+                              {lead.origem || "—"}
+                            </p>
+
+                            <p>
+                              <span className="font-semibold">Agente:</span>{" "}
+                              {lead.agente || "—"}
+                            </p>
+
+                          </div>
+                        </div>
                       )}
                     </Draggable>
                   ))}
