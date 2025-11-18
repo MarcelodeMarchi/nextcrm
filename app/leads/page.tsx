@@ -16,7 +16,7 @@ import {
 } from "firebase/firestore";
 
 // ========================================
-// 🔥 DYNAMIC IMPORTS (obrigatório no Next 16)
+// 🔥 DYNAMIC IMPORTS (ONLY CLIENT)
 // ========================================
 const DragDropContext = dynamic(
   () => import("@hello-pangea/dnd").then((mod) => mod.DragDropContext),
@@ -34,7 +34,7 @@ const Draggable = dynamic(
 );
 
 // ========================================
-// 📌 CONFIGURAÇÃO VISUAL DO KANBAN
+// 📌 COLUNAS
 // ========================================
 const COLUNAS = {
   novo: "Novo",
@@ -42,6 +42,8 @@ const COLUNAS = {
   proposta: "Proposta",
   fechado: "Fechado",
 };
+
+type StatusKey = keyof typeof COLUNAS;
 
 const CORES_COLUNA = {
   novo: "bg-blue-100",
@@ -58,17 +60,16 @@ const CORES_CARD = {
 };
 
 export default function LeadsKanban() {
-  // 🔥 CORREÇÃO DE TIPO
   const [leads, setLeads] = useState<any[]>([]);
   const [busca, setBusca] = useState("");
 
-  // FILTROS
+  // filtros
   const [filtroSeguradora, setFiltroSeguradora] = useState("");
   const [filtroOrigem, setFiltroOrigem] = useState("");
   const [filtroAgente, setFiltroAgente] = useState("");
 
   // ========================================
-  // 🔄 FIRESTORE REALTIME — LISTA DE LEADS
+  // 🔄 Firestore Realtime
   // ========================================
   useEffect(() => {
     const q = query(collection(db, "leads"), orderBy("ordem", "asc"));
@@ -86,30 +87,24 @@ export default function LeadsKanban() {
   }, []);
 
   // ========================================
-  // 🔍 APLICA BUSCA + FILTROS
+  // 🔍 filtros
   // ========================================
   const leadsFiltrados = leads.filter((l) => {
     const termo = busca.toLowerCase();
-
-    const passaBusca =
-      l.nome?.toLowerCase().includes(termo) ||
-      l.telefone?.includes(termo) ||
-      l.email?.toLowerCase().includes(termo);
-
-    const passaSeguradora =
-      !filtroSeguradora || l.seguradora === filtroSeguradora;
-
-    const passaOrigem = !filtroOrigem || l.origem === filtroOrigem;
-
-    const passaAgente = !filtroAgente || l.agente === filtroAgente;
-
-    return passaBusca && passaSeguradora && passaOrigem && passaAgente;
+    return (
+      (l.nome?.toLowerCase().includes(termo) ||
+        l.telefone?.includes(termo) ||
+        l.email?.toLowerCase().includes(termo)) &&
+      (!filtroSeguradora || l.seguradora === filtroSeguradora) &&
+      (!filtroOrigem || l.origem === filtroOrigem) &&
+      (!filtroAgente || l.agente === filtroAgente)
+    );
   });
 
   // ========================================
-  // 📁 AGRUPAR POR STATUS
+  // 📂 AGRUPAR POR STATUS
   // ========================================
-  const colunas = {
+  const colunas: Record<StatusKey, any[]> = {
     novo: leadsFiltrados.filter((l) => l.status === "novo"),
     contato: leadsFiltrados.filter((l) => l.status === "contato"),
     proposta: leadsFiltrados.filter((l) => l.status === "proposta"),
@@ -117,16 +112,17 @@ export default function LeadsKanban() {
   };
 
   // ========================================
-  // 🔁 DRAG & DROP COMPLETO
+  // 🔁 DRAG & DROP
   // ========================================
   const onDragEnd = async (result: any) => {
     const { destination, source, draggableId } = result;
+
     if (!destination) return;
 
-    const statusOrigem = source.droppableId;
-    const statusDestino = destination.droppableId;
+    const statusOrigem = source.droppableId as StatusKey;
+    const statusDestino = destination.droppableId as StatusKey;
 
-    // 🔄 MUDOU DE COLUNA
+    // 🔄 mudou de coluna
     if (statusOrigem !== statusDestino) {
       const novaOrdem = colunas[statusDestino].length;
 
@@ -138,22 +134,20 @@ export default function LeadsKanban() {
       return;
     }
 
-    // 🔁 SOMENTE REORDER DENTRO DA COLUNA
-    const novaLista = Array.from(colunas[statusOrigem]);
+    // 🔁 reorder dentro da mesma coluna
+    const novaLista = [...colunas[statusOrigem]];
     const [removido] = novaLista.splice(source.index, 1);
     novaLista.splice(destination.index, 0, removido);
 
     novaLista.forEach(async (lead, index) => {
-      await updateDoc(doc(db, "leads", lead.id), {
-        ordem: index,
-      });
+      await updateDoc(doc(db, "leads", lead.id), { ordem: index });
     });
   };
 
   // ========================================
-  // ➕ CRIAR LEAD NA COLUNA
+  // ➕ Criar lead na coluna
   // ========================================
-  const criarLead = async (status: string) => {
+  const criarLead = async (status: StatusKey) => {
     await addDoc(collection(db, "leads"), {
       nome: "Novo Lead",
       telefone: "",
@@ -167,11 +161,14 @@ export default function LeadsKanban() {
     });
   };
 
+  // ========================================
+  // UI
+  // ========================================
   return (
     <Layout>
       <h1 className="text-2xl font-bold mb-4">Leads — Pipeline Kanban</h1>
 
-      {/* 🔍 BARRA DE BUSCA */}
+      {/* busca */}
       <input
         type="text"
         placeholder="Buscar lead por nome, telefone..."
@@ -180,7 +177,7 @@ export default function LeadsKanban() {
         className="mb-4 w-full border p-3 rounded shadow"
       />
 
-      {/* 🔎 FILTROS */}
+      {/* filtros */}
       <div className="grid grid-cols-3 gap-4 mb-6">
         <select
           className="border p-2 rounded"
@@ -215,12 +212,10 @@ export default function LeadsKanban() {
         </select>
       </div>
 
-      {/* ======================================
-          🟪 COLUNAS DO KANBAN
-         ====================================== */}
+      {/* KANBAN */}
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="grid grid-cols-4 gap-4">
-          {Object.keys(COLUNAS).map((col) => (
+          {(Object.keys(COLUNAS) as StatusKey[]).map((col) => (
             <Droppable droppableId={col} key={col}>
               {(provided: any) => (
                 <div
@@ -228,7 +223,7 @@ export default function LeadsKanban() {
                   ref={provided.innerRef}
                   {...provided.droppableProps}
                 >
-                  {/* TÍTULO + BOTÃO */}
+                  {/* título + botão */}
                   <div className="flex justify-between items-center mb-3">
                     <h2 className="text-lg font-semibold">
                       {COLUNAS[col]} ({colunas[col].length})
@@ -242,7 +237,7 @@ export default function LeadsKanban() {
                     </button>
                   </div>
 
-                  {/* CARDS */}
+                  {/* cards */}
                   {colunas[col].map((lead, index) => (
                     <Draggable
                       draggableId={lead.id}
@@ -257,9 +252,7 @@ export default function LeadsKanban() {
                           className={`bg-white border ${CORES_CARD[col]} shadow p-3 rounded mb-3 cursor-pointer`}
                         >
                           <p className="font-bold">{lead.nome}</p>
-                          <p className="text-sm text-gray-600">
-                            {lead.telefone}
-                          </p>
+                          <p className="text-sm text-gray-600">{lead.telefone}</p>
                           <span className="text-xs text-gray-500">
                             {lead.seguradora || "Sem seguradora"}
                           </span>
