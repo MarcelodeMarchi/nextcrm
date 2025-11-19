@@ -3,11 +3,11 @@
 import Layout from "@/components/Layout";
 import {
   collection,
-  query,
   getDocs,
-  where,
   orderBy,
+  query,
   limit,
+  where,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useEffect, useState } from "react";
@@ -20,51 +20,50 @@ export default function DashboardPage() {
   const [renovacoes, setRenovacoes] = useState<any[]>([]);
 
   useEffect(() => {
-    carregar();
+    carregarDados();
   }, []);
 
-  const carregar = async () => {
-    // LEADS reais
+  const carregarDados = async () => {
+    // LEADS (contagem real)
     const leadsSnap = await getDocs(collection(db, "leads"));
     setTotalLeads(leadsSnap.size);
 
-    // CLIENTES reais
+    // CLIENTES (contagem real)
     const clientesSnap = await getDocs(collection(db, "clientes"));
     setTotalClientes(clientesSnap.size);
 
-    // APÓLICES reais
-    const apolicesSnap = await getDocs(collection(db, "todasApolices"));
-    setTotalApolices(apolicesSnap.size);
+    // APÓLICES (contagem real)
+    const apSnap = await getDocs(collection(db, "todasApolices"));
+    setTotalApolices(apSnap.size);
 
-    // Próximas tarefas
-    const tarefasQ = query(
+    // TAREFAS PRÓXIMAS
+    const qTarefas = query(
       collection(db, "tarefas"),
       orderBy("data", "asc"),
       limit(5)
     );
-    const tarefas = await getDocs(tarefasQ);
     setTarefasProximas(
-      tarefas.docs.map((d) => ({
+      (await getDocs(qTarefas)).docs.map((d) => ({
         id: d.id,
         ...d.data(),
       }))
     );
 
-    // Renovação 30 dias
+    // RENOVAÇÕES – 30 dias
     const hoje = new Date();
     const limite = new Date();
     limite.setDate(limite.getDate() + 30);
 
-    const renovQ = query(
+    const qRen = query(
       collection(db, "todasApolices"),
       where("fimVigencia", ">=", hoje),
       where("fimVigencia", "<=", limite),
       orderBy("fimVigencia", "asc"),
       limit(5)
     );
-    const renov = await getDocs(renovQ);
+
     setRenovacoes(
-      renov.docs.map((d) => ({
+      (await getDocs(qRen)).docs.map((d) => ({
         id: d.id,
         ...d.data(),
       }))
@@ -73,38 +72,38 @@ export default function DashboardPage() {
 
   return (
     <Layout>
-      <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
+      <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
 
-      {/* CARDS */}
+      {/* RESUMO */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
 
-        <div className="p-6 rounded-lg shadow bg-blue-50 border border-blue-200">
-          <p className="text-blue-700 text-sm">Total de Leads</p>
-          <p className="text-4xl font-bold text-blue-900">{totalLeads}</p>
+        <div className="bg-blue-600 text-white shadow-lg rounded-xl p-6">
+          <p className="text-sm opacity-90">Total de Leads</p>
+          <p className="text-4xl font-bold mt-2">{totalLeads}</p>
         </div>
 
-        <div className="p-6 rounded-lg shadow bg-green-50 border border-green-200">
-          <p className="text-green-700 text-sm">Total de Clientes</p>
-          <p className="text-4xl font-bold text-green-900">{totalClientes}</p>
+        <div className="bg-green-600 text-white shadow-lg rounded-xl p-6">
+          <p className="text-sm opacity-90">Total de Clientes</p>
+          <p className="text-4xl font-bold mt-2">{totalClientes}</p>
         </div>
 
-        <div className="p-6 rounded-lg shadow bg-purple-50 border border-purple-200">
-          <p className="text-purple-700 text-sm">Total de Apólices</p>
-          <p className="text-4xl font-bold text-purple-900">{totalApolices}</p>
+        <div className="bg-purple-600 text-white shadow-lg rounded-xl p-6">
+          <p className="text-sm opacity-90">Total de Apólices</p>
+          <p className="text-4xl font-bold mt-2">{totalApolices}</p>
         </div>
 
       </div>
 
-      {/* Tarefas próximas */}
-      <h2 className="text-xl font-bold mb-2">Próximas tarefas</h2>
-      <div className="bg-white border rounded-lg p-4 mb-10">
+      {/* TAREFAS */}
+      <h2 className="text-xl font-bold mb-3">Próximas tarefas</h2>
+      <div className="bg-white rounded-xl shadow p-5 mb-10">
         {tarefasProximas.length === 0 && (
           <p className="text-gray-500">Nenhuma tarefa próxima.</p>
         )}
 
         {tarefasProximas.map((t) => (
           <div key={t.id} className="border-b py-2">
-            <p className="text-sm font-semibold">{t.titulo}</p>
+            <p className="font-medium">{t.titulo}</p>
             <p className="text-xs text-gray-500">
               {t.data?.toDate?.().toLocaleDateString() || "Sem data"}
             </p>
@@ -112,20 +111,20 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Renovação */}
-      <h2 className="text-xl font-bold mb-2">Renovações (30 dias)</h2>
-      <div className="bg-white border rounded-lg p-4">
+      {/* RENOVAÇÕES */}
+      <h2 className="text-xl font-bold mb-3">Renovações (30 dias)</h2>
+      <div className="bg-white rounded-xl shadow p-5">
         {renovacoes.length === 0 && (
           <p className="text-gray-500">Nenhuma renovação próxima.</p>
         )}
 
         {renovacoes.map((a) => (
           <div key={a.id} className="border-b py-2">
-            <p className="text-sm font-semibold">
+            <p className="font-medium">
               {a.numero} — {a.refNome}
             </p>
             <p className="text-xs text-gray-500">
-              {a.fimVigencia?.toDate?.().toLocaleDateString()}
+              Vence em {a.fimVigencia?.toDate?.().toLocaleDateString()}
             </p>
           </div>
         ))}
