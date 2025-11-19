@@ -1,7 +1,15 @@
 "use client";
 
 import Layout from "@/components/Layout";
-import { collection, getCountFromServer, query, where, orderBy, getDocs, limit } from "firebase/firestore";
+import {
+  collection,
+  getCountFromServer,
+  query,
+  orderBy,
+  where,
+  getDocs,
+  limit
+} from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useEffect, useState } from "react";
 
@@ -17,89 +25,109 @@ export default function DashboardPage() {
   }, []);
 
   const carregarDados = async () => {
-    // Leads
-    const cLeads = await getCountFromServer(collection(db, "leads"));
-    setTotalLeads(cLeads.data().count);
+    try {
+      // --- TOTAL DE LEADS ---
+      const countLeads = await getCountFromServer(collection(db, "leads"));
+      setTotalLeads(countLeads.data().count);
 
-    // Clientes
-    const cClientes = await getCountFromServer(collection(db, "clientes"));
-    setTotalClientes(cClientes.data().count);
+      // --- TOTAL DE CLIENTES ---
+      const countClientes = await getCountFromServer(collection(db, "clientes"));
+      setTotalClientes(countClientes.data().count);
 
-    // Apólices
-    const cApolices = await getCountFromServer(collection(db, "todasApolices"));
-    setTotalApolices(cApolices.data().count);
+      // --- TOTAL DE APÓLICES ---
+      const countApolices = await getCountFromServer(collection(db, "todasApolices"));
+      setTotalApolices(countApolices.data().count);
 
-    // Tarefas – próximas 5
-    const qTarefas = query(
-      collection(db, "tarefas"),
-      orderBy("data", "asc"),
-      limit(5)
-    );
-    setTarefasProximas((await getDocs(qTarefas)).docs.map((d) => ({ id: d.id, ...d.data() })));
+      // --- TAREFAS PRÓXIMAS ---
+      const qTarefas = query(
+        collection(db, "tarefas"),
+        orderBy("data", "asc"),
+        limit(5)
+      );
+      const snapT = await getDocs(qTarefas);
+      setTarefasProximas(snapT.docs.map((d) => ({ id: d.id, ...d.data() })));
 
-    // Renovação de apólices (30 dias)
-    const hoje = new Date();
-    const limite = new Date();
-    limite.setDate(limite.getDate() + 30);
+      // --- RENOVAÇÕES próximas 30 dias ---
+      const hoje = new Date();
+      const limite = new Date();
+      limite.setDate(limite.getDate() + 30);
 
-    const qRen = query(
-      collection(db, "todasApolices"),
-      where("fimVigencia", ">=", hoje),
-      where("fimVigencia", "<=", limite),
-      orderBy("fimVigencia", "asc"),
-      limit(5)
-    );
-
-    setRenovacoes((await getDocs(qRen)).docs.map((d) => ({ id: d.id, ...d.data() })));
+      const qRen = query(
+        collection(db, "todasApolices"),
+        where("fimVigencia", ">=", hoje),
+        where("fimVigencia", "<=", limite),
+        orderBy("fimVigencia", "asc"),
+        limit(5)
+      );
+      const snapR = await getDocs(qRen);
+      setRenovacoes(snapR.docs.map((d) => ({ id: d.id, ...d.data() })));
+    } catch (err) {
+      console.error("Erro carregando dashboard:", err);
+    }
   };
 
   return (
     <Layout>
-      <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
+      <h1 className="text-3xl font-bold mb-8">Dashboard</h1>
 
-      {/* CARDS DE RESUMO */}
+      {/* ============================ */}
+      {/*        CARDS DE RESUMO       */}
+      {/* ============================ */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-        
-        <div className="bg-white shadow rounded-lg p-6">
-          <p className="text-gray-500 text-sm">Total de Leads</p>
-          <p className="text-3xl font-bold">{totalLeads}</p>
+
+        {/* LEADS */}
+        <div className="p-6 shadow-lg rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+          <p className="text-sm opacity-80">Total de Leads</p>
+          <p className="text-4xl font-bold">{totalLeads}</p>
         </div>
 
-        <div className="bg-white shadow rounded-lg p-6">
-          <p className="text-gray-500 text-sm">Total de Clientes</p>
-          <p className="text-3xl font-bold">{totalClientes}</p>
+        {/* CLIENTES */}
+        <div className="p-6 shadow-lg rounded-xl bg-gradient-to-br from-green-600 to-green-700 text-white">
+          <p className="text-sm opacity-80">Total de Clientes</p>
+          <p className="text-4xl font-bold">{totalClientes}</p>
         </div>
 
-        <div className="bg-white shadow rounded-lg p-6">
-          <p className="text-gray-500 text-sm">Total de Apólices</p>
-          <p className="text-3xl font-bold">{totalApolices}</p>
+        {/* APÓLICES */}
+        <div className="p-6 shadow-lg rounded-xl bg-gradient-to-br from-yellow-500 to-yellow-600 text-white">
+          <p className="text-sm opacity-80">Total de Apólices</p>
+          <p className="text-4xl font-bold">{totalApolices}</p>
         </div>
 
       </div>
 
-      {/* TAREFAS PRÓXIMAS */}
+      {/* =========================== */}
+      {/*     PRÓXIMAS TAREFAS        */}
+      {/* =========================== */}
       <h2 className="text-xl font-bold mb-2">Próximas tarefas</h2>
-      <div className="bg-white border rounded-lg p-4 mb-10">
-        {tarefasProximas.length === 0 && <p className="text-gray-500">Nenhuma tarefa próxima.</p>}
+      <div className="bg-white border rounded-xl p-4 mb-10 shadow-sm">
+        {tarefasProximas.length === 0 && (
+          <p className="text-gray-500">Nenhuma tarefa próxima.</p>
+        )}
+
         {tarefasProximas.map((t) => (
-          <div key={t.id} className="border-b py-2">
-            <p className="text-sm font-semibold">{t.titulo}</p>
-            <p className="text-xs text-gray-500">
-              {t.data?.toDate?.().toLocaleDateString() || "Sem data"}
+          <div key={t.id} className="border-b py-3">
+            <p className="font-semibold">{t.titulo}</p>
+            <p className="text-xs text-gray-600">
+              {t.data?.toDate?.().toLocaleDateString("pt-BR") || "Sem data"}
             </p>
           </div>
         ))}
       </div>
 
-      {/* RENOVAÇÕES EM BREVE */}
-      <h2 className="text-xl font-bold mb-2">Renovações (próximos 30 dias)</h2>
-      <div className="bg-white border rounded-lg p-4">
-        {renovacoes.length === 0 && <p className="text-gray-500">Nenhuma renovação próxima.</p>}
+      {/* =========================== */}
+      {/*     RENOVAÇÕES PRÓXIMAS    */}
+      {/* =========================== */}
+      <h2 className="text-xl font-bold mb-2">Renovações dos próximos 30 dias</h2>
+      <div className="bg-white border rounded-xl p-4 shadow-sm">
+        {renovacoes.length === 0 && (
+          <p className="text-gray-500">Nenhuma renovação próxima.</p>
+        )}
+
         {renovacoes.map((a) => (
-          <div key={a.id} className="border-b py-2">
-            <p className="text-sm font-semibold">{a.numero} — {a.refNome}</p>
-            <p className="text-xs text-gray-500">
-              Vence em {a.fimVigencia?.toDate?.().toLocaleDateString()}
+          <div key={a.id} className="border-b py-3">
+            <p className="font-semibold">{a.numero} — {a.refNome}</p>
+            <p className="text-xs text-gray-600">
+              Vence em {a.fimVigencia?.toDate?.().toLocaleDateString("pt-BR")}
             </p>
           </div>
         ))}
@@ -107,3 +135,4 @@ export default function DashboardPage() {
     </Layout>
   );
 }
+

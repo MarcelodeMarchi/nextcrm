@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Layout from "@/components/Layout";
-import { addDoc, collection, getDocs, serverTimestamp } from "firebase/firestore";
+import { useState } from "react";
 import { db } from "@/lib/firebase";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 
 export default function NovaTarefaPage() {
@@ -11,35 +11,22 @@ export default function NovaTarefaPage() {
 
   const [titulo, setTitulo] = useState("");
   const [data, setData] = useState("");
-  const [tipoRef, setTipoRef] = useState("");
-  const [idRef, setIdRef] = useState("");
-  const [listaRef, setListaRef] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (tipoRef === "lead") {
-      getDocs(collection(db, "leads")).then((snap) => {
-        setListaRef(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      });
-    } else if (tipoRef === "cliente") {
-      getDocs(collection(db, "clientes")).then((snap) => {
-        setListaRef(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      });
-    }
-  }, [tipoRef]);
+  const [hora, setHora] = useState("09:00");
 
   const salvar = async () => {
+    let dataFinal = null;
+
+    if (data && hora) {
+      const [h, m] = hora.split(":").map(Number);
+      const dt = new Date(data);
+      dt.setHours(h, m, 0, 0);
+      dataFinal = dt;
+    }
+
     await addDoc(collection(db, "tarefas"), {
       titulo,
       concluido: false,
-      data: data ? new Date(data) : null,
-      relacionadoA:
-        tipoRef && idRef
-          ? {
-              tipo: tipoRef,
-              id: idRef,
-              nome: listaRef.find((x) => x.id === idRef)?.nome || "",
-            }
-          : null,
+      data: dataFinal,
       criadoEm: serverTimestamp(),
     });
 
@@ -52,7 +39,7 @@ export default function NovaTarefaPage() {
 
       <div className="space-y-4 max-w-lg">
         <div>
-          <label className="block text-sm font-medium">Título</label>
+          <label className="block text-sm">Título</label>
           <input
             className="border rounded-md px-3 py-2 w-full"
             value={titulo}
@@ -61,7 +48,7 @@ export default function NovaTarefaPage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium">Data</label>
+          <label className="block text-sm">Data</label>
           <input
             type="date"
             className="border rounded-md px-3 py-2 w-full"
@@ -71,41 +58,20 @@ export default function NovaTarefaPage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium">Relacionado a</label>
-          <select
+          <label className="block text-sm">Horário</label>
+          <input
+            type="time"
             className="border rounded-md px-3 py-2 w-full"
-            value={tipoRef}
-            onChange={(e) => setTipoRef(e.target.value)}
-          >
-            <option value="">Nenhum</option>
-            <option value="lead">Lead</option>
-            <option value="cliente">Cliente</option>
-          </select>
+            value={hora}
+            onChange={(e) => setHora(e.target.value)}
+          />
         </div>
-
-        {tipoRef && (
-          <div>
-            <label className="block text-sm font-medium">Selecione</label>
-            <select
-              className="border rounded-md px-3 py-2 w-full"
-              value={idRef}
-              onChange={(e) => setIdRef(e.target.value)}
-            >
-              <option value="">Escolher...</option>
-              {listaRef.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.nome}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
 
         <button
           onClick={salvar}
           className="px-4 py-2 bg-black text-white rounded-md"
         >
-          Salvar Tarefa
+          Salvar
         </button>
       </div>
     </Layout>
