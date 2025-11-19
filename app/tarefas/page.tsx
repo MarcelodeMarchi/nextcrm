@@ -13,6 +13,23 @@ import {
   doc,
 } from "firebase/firestore";
 
+import { Calendar, Views, dateFnsLocalizer } from "react-big-calendar";
+import { format, parse, startOfWeek, getDay } from "date-fns";
+import { ptBR } from "date-fns/locale";
+
+// =======================
+// CONFIGURAÇÃO DO CALENDÁRIO
+// =======================
+const locales = { "pt-BR": ptBR };
+
+const localizer = dateFnsLocalizer({
+  format,
+  parse,
+  startOfWeek: () => startOfWeek(new Date(), { weekStartsOn: 1 }),
+  getDay,
+  locales,
+});
+
 type Tarefa = {
   id: string;
   titulo: string;
@@ -22,17 +39,18 @@ type Tarefa = {
     nome: string;
   };
   concluido: boolean;
-  data: any;
+  data: any; // firestore timestamp
 };
 
 export default function TarefasPage() {
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
+  const [aba, setAba] = useState<"lista" | "calendario">("lista");
 
+  // =======================
+  // CARREGAR TAREFAS
+  // =======================
   useEffect(() => {
-    const q = query(
-      collection(db, "tarefas"),
-      orderBy("data", "asc")
-    );
+    const q = query(collection(db, "tarefas"), orderBy("data", "asc"));
 
     const unsub = onSnapshot(q, (snap) => {
       const data = snap.docs.map((d) => ({
@@ -52,8 +70,22 @@ export default function TarefasPage() {
     });
   };
 
+  // =======================
+  // EVENTOS do calendário
+  // =======================
+  const eventos = tarefas
+    .filter((t) => t.data)
+    .map((t) => ({
+      id: t.id,
+      title: t.titulo,
+      start: t.data.toDate(),
+      end: t.data.toDate(),
+      allDay: true,
+    }));
+
   return (
     <Layout>
+      {/* CABEÇALHO */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Tarefas</h1>
 
@@ -65,75 +97,133 @@ export default function TarefasPage() {
         </Link>
       </div>
 
-      <div className="bg-white rounded-lg shadow border">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-gray-100 text-left">
-              <th className="p-3">Concluir</th>
-              <th className="p-3">Título</th>
-              <th className="p-3">Data</th>
-              <th className="p-3">Relacionado</th>
-              <th className="p-3">Ações</th>
-            </tr>
-          </thead>
+      {/* ABAS */}
+      <div className="flex gap-4 mb-6 border-b pb-2">
+        <button
+          onClick={() => setAba("lista")}
+          className={`px-4 py-2 rounded ${
+            aba === "lista"
+              ? "bg-black text-white"
+              : "bg-gray-200 text-gray-700"
+          }`}
+        >
+          Lista
+        </button>
 
-          <tbody>
-            {tarefas.map((t) => (
-              <tr key={t.id} className="border-t">
-                <td className="p-3">
-                  <input
-                    type="checkbox"
-                    checked={t.concluido}
-                    onChange={() => toggleConcluido(t)}
-                  />
-                </td>
-
-                <td className="p-3">
-                  {t.concluido ? (
-                    <span className="line-through text-gray-400">{t.titulo}</span>
-                  ) : (
-                    t.titulo
-                  )}
-                </td>
-
-                <td className="p-3">
-                  {t.data?.toDate?.().toLocaleDateString() || "-"}
-                </td>
-
-                <td className="p-3">
-                  {t.relacionadoA ? (
-                    <Link
-                      className="text-blue-600 hover:underline"
-                      href={`/${t.relacionadoA.tipo === "lead" ? "leads" : "clientes"}/${t.relacionadoA.id}`}
-                    >
-                      {t.relacionadoA.nome}
-                    </Link>
-                  ) : (
-                    "-"
-                  )}
-                </td>
-
-                <td className="p-3">
-                  <Link
-                    href={`/tarefas/${t.id}`}
-                    className="text-blue-600 hover:underline"
-                  >
-                    Abrir
-                  </Link>
-                </td>
-              </tr>
-            ))}
-
-            {tarefas.length === 0 && (
-              <tr>
-                <td colSpan={5} className="p-4 text-center text-gray-500">
-                  Nenhuma tarefa cadastrada.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+        <button
+          onClick={() => setAba("calendario")}
+          className={`px-4 py-2 rounded ${
+            aba === "calendario"
+              ? "bg-black text-white"
+              : "bg-gray-200 text-gray-700"
+          }`}
+        >
+          Calendário
+        </button>
       </div>
+
+      {/* ==========================
+          ABA 1 — LISTA
+      =========================== */}
+      {aba === "lista" && (
+        <div className="bg-white rounded-lg shadow border">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-100 text-left">
+                <th className="p-3">Concluir</th>
+                <th className="p-3">Título</th>
+                <th className="p-3">Data</th>
+                <th className="p-3">Relacionado</th>
+                <th className="p-3">Ações</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {tarefas.map((t) => (
+                <tr key={t.id} className="border-t">
+                  <td className="p-3">
+                    <input
+                      type="checkbox"
+                      checked={t.concluido}
+                      onChange={() => toggleConcluido(t)}
+                    />
+                  </td>
+
+                  <td className="p-3">
+                    {t.concluido ? (
+                      <span className="line-through text-gray-400">
+                        {t.titulo}
+                      </span>
+                    ) : (
+                      t.titulo
+                    )}
+                  </td>
+
+                  <td className="p-3">
+                    {t.data?.toDate?.().toLocaleDateString("pt-BR") || "-"}
+                  </td>
+
+                  <td className="p-3">
+                    {t.relacionadoA ? (
+                      <Link
+                        className="text-blue-600 hover:underline"
+                        href={`/${
+                          t.relacionadoA.tipo === "lead"
+                            ? "leads"
+                            : "clientes"
+                        }/${t.relacionadoA.id}`}
+                      >
+                        {t.relacionadoA.nome}
+                      </Link>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
+
+                  <td className="p-3">
+                    <Link
+                      href={`/tarefas/${t.id}`}
+                      className="text-blue-600 hover:underline"
+                    >
+                      Abrir
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+
+              {tarefas.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="p-4 text-center text-gray-500"
+                  >
+                    Nenhuma tarefa cadastrada.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* ==========================
+          ABA 2 — CALENDÁRIO
+      =========================== */}
+      {aba === "calendario" && (
+        <div className="bg-white rounded-lg shadow border p-4">
+          <Calendar
+            localizer={localizer}
+            events={eventos}
+            startAccessor="start"
+            endAccessor="end"
+            views={[Views.MONTH, Views.WEEK, Views.DAY]}
+            defaultView={Views.MONTH}
+            style={{ height: 600 }}
+            popup
+            onSelectEvent={(e) => (window.location.href = `/tarefas/${e.id}`)}
+          />
+        </div>
+      )}
     </Layout>
   );
 }
