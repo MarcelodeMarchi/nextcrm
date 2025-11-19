@@ -43,18 +43,25 @@ const COLUNAS: Record<Status, string> = {
   fechado: "Fechado",
 };
 
-const CORES_COLUNA: Record<Status, string> = {
+const COR_FUNDO_COLUNA: Record<Status, string> = {
   novo: "bg-blue-50",
   contato: "bg-yellow-50",
   proposta: "bg-purple-50",
   fechado: "bg-green-50",
 };
 
-const CORES_CARD: Record<Status, string> = {
+const COR_BORDA_COLUNA: Record<Status, string> = {
   novo: "border-blue-300",
   contato: "border-yellow-300",
   proposta: "border-purple-300",
   fechado: "border-green-300",
+};
+
+const COR_CARD: Record<Status, string> = {
+  novo: "border-blue-400",
+  contato: "border-yellow-400",
+  proposta: "border-purple-400",
+  fechado: "border-green-400",
 };
 
 export default function LeadsKanban() {
@@ -92,35 +99,34 @@ export default function LeadsKanban() {
     fechado: leadsFiltrados.filter((l) => l.status === "fechado"),
   };
 
- const onDragEnd = async (result: any) => {
-  const { destination, source, draggableId } = result;
-  if (!destination) return;
+  const onDragEnd = async (result: any) => {
+    const { destination, source, draggableId } = result;
+    if (!destination) return;
 
-  const statusOrigem = source.droppableId as Status;
-  const statusDestino = destination.droppableId as Status;
+    const statusOrigem = source.droppableId as Status;
+    const statusDestino = destination.droppableId as Status;
 
-  // MUDOU DE COLUNA
-  if (statusOrigem !== statusDestino) {
-    const novaOrdem = colunas[statusDestino].length;
+    // MUDOU DE COLUNA
+    if (statusOrigem !== statusDestino) {
+      const novaOrdem = colunas[statusDestino].length;
 
-    await updateDoc(doc(db, "leads", draggableId), {
-      status: statusDestino,
-      ordem: novaOrdem,
+      await updateDoc(doc(db, "leads", draggableId), {
+        status: statusDestino,
+        ordem: novaOrdem,
+      });
+
+      return;
+    }
+
+    // REORDENAR NA MESMA
+    const novaLista = [...colunas[statusOrigem]];
+    const [removido] = novaLista.splice(source.index, 1);
+    novaLista.splice(destination.index, 0, removido);
+
+    novaLista.forEach(async (lead, index) => {
+      await updateDoc(doc(db, "leads", lead.id), { ordem: index });
     });
-
-    return;
-  }
-
-  // REORDENAR NA MESMA COLUNA
-  const novaLista = [...colunas[statusOrigem]];
-  const [removido] = novaLista.splice(source.index, 1);
-  novaLista.splice(destination.index, 0, removido);
-
-  novaLista.forEach(async (lead, index) => {
-    await updateDoc(doc(db, "leads", lead.id), { ordem: index });
-  });
-};
-
+  };
 
   const criarLead = async (status: Status) => {
     await addDoc(collection(db, "leads"), {
@@ -157,12 +163,16 @@ export default function LeadsKanban() {
               <Droppable droppableId={coluna} key={coluna}>
                 {(provided) => (
                   <div
-                    className={`${CORES_COLUNA[coluna]} rounded-lg p-3 min-h-[600px]`}
+                    className={`
+                      ${COR_FUNDO_COLUNA[coluna]}
+                      ${COR_BORDA_COLUNA[coluna]}
+                      border-2 rounded-lg p-3 min-h-[650px] shadow
+                    `}
                     ref={provided.innerRef}
                     {...provided.droppableProps}
                   >
                     <div className="flex justify-between items-center mb-3">
-                      <h2 className="text-lg font-bold">
+                      <h2 className="text-lg font-bold text-gray-800">
                         {COLUNAS[coluna]} ({colunas[coluna].length})
                       </h2>
 
@@ -186,18 +196,32 @@ export default function LeadsKanban() {
                               ref={prov.innerRef}
                               {...prov.draggableProps}
                               {...prov.dragHandleProps}
-                              className={`bg-white border ${CORES_CARD[coluna]} shadow p-3 rounded mb-3 cursor-pointer`}
+                              className={`
+                                bg-white border 
+                                ${COR_CARD[coluna]}
+                                shadow p-4 rounded mb-3 cursor-pointer
+                                hover:bg-gray-50 transition
+                              `}
                             >
-                              <p className="font-bold">{lead.nome}</p>
+                              <p className="font-bold text-sm">{lead.nome}</p>
 
-                              <p className="text-xs text-gray-600">
+                              <p className="text-xs text-gray-600 mb-2">
                                 {lead.telefone || "Sem telefone"}
                               </p>
 
-                              <div className="text-xs text-gray-700 mt-2">
-                                <p><strong>Seguradora:</strong> {lead.seguradora || "—"}</p>
-                                <p><strong>Origem:</strong> {lead.origem || "—"}</p>
-                                <p><strong>Agente:</strong> {lead.agente || "—"}</p>
+                              <div className="text-xs text-gray-700 space-y-1">
+                                <p>
+                                  <strong>Seguradora:</strong>{" "}
+                                  {lead.seguradora || "—"}
+                                </p>
+                                <p>
+                                  <strong>Origem:</strong>{" "}
+                                  {lead.origem || "—"}
+                                </p>
+                                <p>
+                                  <strong>Agente:</strong>{" "}
+                                  {lead.agente || "—"}
+                                </p>
                               </div>
                             </div>
                           </Link>
