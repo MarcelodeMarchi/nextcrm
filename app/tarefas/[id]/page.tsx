@@ -13,6 +13,20 @@ export default function EditarTarefaPage() {
   const [tarefa, setTarefa] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  // 🔥 Função segura para converter qualquer data
+  const toInputDate = (value: any) => {
+    if (!value) return "";
+
+    try {
+      if (value?.toDate) {
+        return value.toDate().toISOString().slice(0, 10);
+      }
+      return new Date(value).toISOString().slice(0, 10);
+    } catch {
+      return "";
+    }
+  };
+
   useEffect(() => {
     const carregar = async () => {
       const ref = doc(db, "tarefas", id as string);
@@ -23,20 +37,7 @@ export default function EditarTarefaPage() {
         return;
       }
 
-      const dados = snap.data();
-
-      let hora = "09:00";
-      if (dados.data) {
-        const dt = dados.data.toDate();
-        hora = dt.toISOString().substring(11, 16);
-      }
-
-      setTarefa({
-        ...dados,
-        id,
-        hora,
-      });
-
+      setTarefa({ id, ...snap.data() });
       setLoading(false);
     };
 
@@ -44,27 +45,22 @@ export default function EditarTarefaPage() {
   }, [id, router]);
 
   const salvar = async () => {
-    let dataFinal = null;
-    if (tarefa.data && tarefa.hora) {
-      const [h, m] = tarefa.hora.split(":").map(Number);
-      const dt = new Date(tarefa.data);
-      dt.setHours(h, m, 0, 0);
-      dataFinal = dt;
-    }
-
     await updateDoc(doc(db, "tarefas", id as string), {
       titulo: tarefa.titulo,
       concluido: tarefa.concluido,
-      data: dataFinal,
+      data: tarefa.data ? new Date(tarefa.data) : null,
+      horario: tarefa.horario || null,
     });
 
     alert("Tarefa atualizada!");
+    router.push("/tarefas");
   };
 
   const excluir = async () => {
     if (!confirm("Tem certeza que deseja excluir esta tarefa?")) return;
 
     await deleteDoc(doc(db, "tarefas", id as string));
+    alert("Tarefa excluída!");
     router.push("/tarefas");
   };
 
@@ -82,27 +78,25 @@ export default function EditarTarefaPage() {
 
       <div className="space-y-4 max-w-lg">
 
-        {/* Título */}
+        {/* TÍTULO */}
         <div>
           <label className="block text-sm">Título</label>
           <input
             className="border rounded-md px-3 py-2 w-full"
             value={tarefa.titulo}
-            onChange={(e) => setTarefa({ ...tarefa, titulo: e.target.value })}
+            onChange={(e) =>
+              setTarefa({ ...tarefa, titulo: e.target.value })
+            }
           />
         </div>
 
-        {/* Data */}
+        {/* DATA */}
         <div>
           <label className="block text-sm">Data</label>
           <input
             type="date"
             className="border rounded-md px-3 py-2 w-full"
-            value={
-              tarefa.data
-                ? new Date(tarefa.data).toISOString().substring(0, 10)
-                : ""
-            }
+            value={toInputDate(tarefa.data)}
             onChange={(e) =>
               setTarefa({
                 ...tarefa,
@@ -112,23 +106,20 @@ export default function EditarTarefaPage() {
           />
         </div>
 
-        {/* Horário */}
+        {/* HORÁRIO */}
         <div>
           <label className="block text-sm">Horário</label>
           <input
             type="time"
             className="border rounded-md px-3 py-2 w-full"
-            value={tarefa.hora}
+            value={tarefa.horario || ""}
             onChange={(e) =>
-              setTarefa({
-                ...tarefa,
-                hora: e.target.value,
-              })
+              setTarefa({ ...tarefa, horario: e.target.value })
             }
           />
         </div>
 
-        {/* Concluído */}
+        {/* CHECKBOX */}
         <div className="flex items-center gap-2">
           <input
             type="checkbox"
@@ -140,21 +131,29 @@ export default function EditarTarefaPage() {
           <label className="text-sm">Concluída</label>
         </div>
 
-        {/* Salvar */}
-        <button
-          onClick={salvar}
-          className="px-4 py-2 bg-black text-white rounded-md"
-        >
-          Salvar
-        </button>
+        {/* BOTÕES */}
+        <div className="flex gap-3">
+          <button
+            onClick={salvar}
+            className="px-4 py-2 bg-black text-white rounded-md"
+          >
+            Salvar
+          </button>
 
-        {/* Excluir */}
-        <button
-          onClick={excluir}
-          className="px-4 py-2 bg-red-600 text-white rounded-md"
-        >
-          Excluir Tarefa
-        </button>
+          <button
+            onClick={excluir}
+            className="px-4 py-2 bg-red-600 text-white rounded-md"
+          >
+            Excluir
+          </button>
+
+          <button
+            onClick={() => router.push("/tarefas")}
+            className="px-4 py-2 bg-gray-300 rounded-md"
+          >
+            Cancelar
+          </button>
+        </div>
       </div>
     </Layout>
   );
