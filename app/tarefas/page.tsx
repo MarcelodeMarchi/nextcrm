@@ -13,28 +13,6 @@ import {
   doc,
 } from "firebase/firestore";
 
-import { Calendar, Views, dateFnsLocalizer } from "react-big-calendar";
-import { format, parse, startOfWeek, getDay } from "date-fns";
-import { ptBR } from "date-fns/locale";
-
-import "@/app/styles/calendar.css"; // LIMITA HORÁRIOS 6h–18h
-
-// =======================
-// CONFIGURAÇÃO DO LOCALIZER
-// =======================
-const locales = {
-  "pt-BR": ptBR,
-};
-
-const localizer = dateFnsLocalizer({
-  format,
-  parse,
-  startOfWeek: () => startOfWeek(new Date(), { weekStartsOn: 1 }),
-  getDay,
-  locales,
-});
-
-// Tipo da Tarefa
 type Tarefa = {
   id: string;
   titulo: string;
@@ -44,57 +22,46 @@ type Tarefa = {
     nome: string;
   };
   concluido: boolean;
-  data: any; // Firestore timestamp
+  data: any;
+  horario?: string;
 };
 
 export default function TarefasPage() {
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
-  const [aba, setAba] = useState<"lista" | "calendario">("lista");
+  const [busca, setBusca] = useState("");
 
-  // =======================
-  // CARREGAR TAREFAS
-  // =======================
   useEffect(() => {
     const q = query(collection(db, "tarefas"), orderBy("data", "asc"));
 
     const unsub = onSnapshot(q, (snap) => {
-      const list = snap.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-      })) as Tarefa[];
-
-      setTarefas(list);
+      setTarefas(
+        snap.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+        })) as Tarefa[]
+      );
     });
 
     return () => unsub();
   }, []);
 
-  const toggleConcluido = async (tarefa: Tarefa) => {
-    await updateDoc(doc(db, "tarefas", tarefa.id), {
-      concluido: !tarefa.concluido,
+  const toggleConcluido = async (t: Tarefa) => {
+    await updateDoc(doc(db, "tarefas", t.id), {
+      concluido: !t.concluido,
     });
   };
 
-  // =======================
-  // EVENTOS PARA O CALENDÁRIO
-  // =======================
-  const eventos = tarefas
-    .filter((t) => t.data)
-    .map((t) => {
-      const start = t.data.toDate();
-      const end = new Date(start.getTime() + 60 * 60 * 1000); // 1h de duração
-
-      return {
-        id: t.id,
-        title: t.titulo,
-        start,
-        end,
-      };
-    });
+  const filtradas = tarefas.filter((t) => {
+    const b = busca.toLowerCase();
+    return (
+      t.titulo.toLowerCase().includes(b) ||
+      t.relacionadoA?.nome?.toLowerCase().includes(b) ||
+      t.relacionadoA?.tipo?.toLowerCase().includes(b)
+    );
+  });
 
   return (
     <Layout>
-      {/* TÍTULO */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Tarefas</h1>
 
@@ -106,109 +73,242 @@ export default function TarefasPage() {
         </Link>
       </div>
 
-      {/* ABAS */}
-      <div className="flex gap-4 mb-6 border-b pb-2">
-        <button
-          onClick={() => setAba("lista")}
-          className={`px-4 py-2 rounded ${
-            aba === "lista"
-              ? "bg-black text-white"
-              : "bg-gray-200 text-gray-700"
-          }`}
-        >
-          Lista
-        </button>
+      {/* FILTRO */}
+      <input
+        type="text"
+        placeholder="Buscar tarefa por título, cliente ou lead..."
+        value={busca}
+        onChange={(e) => setBusca(e.target.value)}
+        className="mb-6 w-full border p-3 rounded shadow"
+      />
 
-        <button
-          onClick={() => setAba("calendario")}
-          className={`px-4 py-2 rounded ${
-            aba === "calendario"
-              ? "bg-black text-white"
-              : "bg-gray-200 text-gray-700"
-          }`}
+      <div className="bg-white rounded-lg shadow border">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-gray-100 text-left">
+              <th className="p-3">Concluir</th>
+              <th className="p-3">Título</th>
+              <th className="p-3">Data</th>
+              <th className="p-3">Relacionado</th>
+              <th className="p-3">Ações</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {filtradas.map((t) => (
+              <tr key={t.id} className="border-t hover:bg-gray-50">
+                <td className="p-3">
+                  <input
+                    type="checkbox"
+                    checked={t.concluido}
+                    onChange={() => toggleConcluido(t)}
+                  />
+                </td>
+
+                <td className="p-3 font-semibold">
+                  {t.concluido ? (
+                    <span className="line-through text-gray-400">{t.titulo}</span>
+                  ) : (
+                    t.titulo
+                  )}
+                </td>
+
+                <td className="p-3">
+                  {t.data?.toDate?.().toLocaleDateString("pt-BR") || "-"}{" "}
+                  {t.horario ? `• ${t.horario}` : ""}
+                </td>
+
+                <td className="p-3">
+                  {t.relacionadoA ? (
+                    <Link
+                      href={`/${t.relacionadoA.tipo === "lead" ? "leads" : "clientes"}/${t.relacionadoA.id}`}
+                      className="text-blue-600 hover:underline"
+                    >
+                      {t.relacionadoA.nome}
+                    </Link>
+                  ) : (
+                    "-"
+                  )}
+                </td>
+
+                <td className="p-3">
+                  <Link
+                    href={`/tarefas/${t.id}`}
+                    className="text-blue-600 hover:underline"
+                  >
+                    Abrir
+                  </Link>
+                </td>
+              </tr>
+            ))}
+
+            {filtradas.length === 0 && (
+              <tr>
+                <td colSpan={5} className="p-4 text-center text-gray-500">
+                  Nenhuma tarefa encontrada.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </Layout>
+  );
+}
+"use client";
+
+import { useEffect, useState } from "react";
+import Layout from "@/components/Layout";
+import Link from "next/link";
+import { db } from "@/lib/firebase";
+import {
+  collection,
+  onSnapshot,
+  orderBy,
+  query,
+  updateDoc,
+  doc,
+} from "firebase/firestore";
+
+type Tarefa = {
+  id: string;
+  titulo: string;
+  relacionadoA?: {
+    tipo: "lead" | "cliente";
+    id: string;
+    nome: string;
+  };
+  concluido: boolean;
+  data: any;
+  horario?: string;
+};
+
+export default function TarefasPage() {
+  const [tarefas, setTarefas] = useState<Tarefa[]>([]);
+  const [busca, setBusca] = useState("");
+
+  useEffect(() => {
+    const q = query(collection(db, "tarefas"), orderBy("data", "asc"));
+
+    const unsub = onSnapshot(q, (snap) => {
+      setTarefas(
+        snap.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+        })) as Tarefa[]
+      );
+    });
+
+    return () => unsub();
+  }, []);
+
+  const toggleConcluido = async (t: Tarefa) => {
+    await updateDoc(doc(db, "tarefas", t.id), {
+      concluido: !t.concluido,
+    });
+  };
+
+  const filtradas = tarefas.filter((t) => {
+    const b = busca.toLowerCase();
+    return (
+      t.titulo.toLowerCase().includes(b) ||
+      t.relacionadoA?.nome?.toLowerCase().includes(b) ||
+      t.relacionadoA?.tipo?.toLowerCase().includes(b)
+    );
+  });
+
+  return (
+    <Layout>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">Tarefas</h1>
+
+        <Link
+          href="/tarefas/novo"
+          className="px-4 py-2 bg-black text-white rounded-md text-sm"
         >
-          Calendário
-        </button>
+          Nova Tarefa
+        </Link>
       </div>
 
-      {/* LISTA */}
-      {aba === "lista" && (
-        <div className="bg-white rounded-lg shadow border">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-100 text-left">
-                <th className="p-3">Concluir</th>
-                <th className="p-3">Título</th>
-                <th className="p-3">Data</th>
-                <th className="p-3">Relacionado</th>
-                <th className="p-3">Ações</th>
-              </tr>
-            </thead>
+      {/* FILTRO */}
+      <input
+        type="text"
+        placeholder="Buscar tarefa por título, cliente ou lead..."
+        value={busca}
+        onChange={(e) => setBusca(e.target.value)}
+        className="mb-6 w-full border p-3 rounded shadow"
+      />
 
-            <tbody>
-              {tarefas.map((t) => (
-                <tr key={t.id} className="border-t">
-                  <td className="p-3">
-                    <input
-                      type="checkbox"
-                      checked={t.concluido}
-                      onChange={() => toggleConcluido(t)}
-                    />
-                  </td>
+      <div className="bg-white rounded-lg shadow border">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-gray-100 text-left">
+              <th className="p-3">Concluir</th>
+              <th className="p-3">Título</th>
+              <th className="p-3">Data</th>
+              <th className="p-3">Relacionado</th>
+              <th className="p-3">Ações</th>
+            </tr>
+          </thead>
 
-                  <td className="p-3">{t.titulo}</td>
+          <tbody>
+            {filtradas.map((t) => (
+              <tr key={t.id} className="border-t hover:bg-gray-50">
+                <td className="p-3">
+                  <input
+                    type="checkbox"
+                    checked={t.concluido}
+                    onChange={() => toggleConcluido(t)}
+                  />
+                </td>
 
-                  <td className="p-3">
-                    {t.data?.toDate?.().toLocaleString("pt-BR")}
-                  </td>
+                <td className="p-3 font-semibold">
+                  {t.concluido ? (
+                    <span className="line-through text-gray-400">{t.titulo}</span>
+                  ) : (
+                    t.titulo
+                  )}
+                </td>
 
-                  <td className="p-3">
-                    {t.relacionadoA ? (
-                      <Link
-                        href={`/${
-                          t.relacionadoA.tipo === "lead"
-                            ? "leads"
-                            : "clientes"
-                        }/${t.relacionadoA.id}`}
-                        className="text-blue-600 underline"
-                      >
-                        {t.relacionadoA.nome}
-                      </Link>
-                    ) : (
-                      "-"
-                    )}
-                  </td>
+                <td className="p-3">
+                  {t.data?.toDate?.().toLocaleDateString("pt-BR") || "-"}{" "}
+                  {t.horario ? `• ${t.horario}` : ""}
+                </td>
 
-                  <td className="p-3">
+                <td className="p-3">
+                  {t.relacionadoA ? (
                     <Link
-                      href={`/tarefas/${t.id}`}
-                      className="text-blue-600 underline"
+                      href={`/${t.relacionadoA.tipo === "lead" ? "leads" : "clientes"}/${t.relacionadoA.id}`}
+                      className="text-blue-600 hover:underline"
                     >
-                      Abrir
+                      {t.relacionadoA.nome}
                     </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+                  ) : (
+                    "-"
+                  )}
+                </td>
 
-      {/* CALENDÁRIO */}
-      {aba === "calendario" && (
-        <div className="bg-white rounded-lg shadow border p-4">
-          <Calendar
-            localizer={localizer}
-            events={eventos}
-            startAccessor="start"
-            endAccessor="end"
-            views={[Views.MONTH, Views.WEEK, Views.DAY]}
-            defaultView={Views.MONTH}
-            style={{ height: 650 }}
-            onSelectEvent={(e) => (window.location.href = `/tarefas/${e.id}`)}
-          />
-        </div>
-      )}
+                <td className="p-3">
+                  <Link
+                    href={`/tarefas/${t.id}`}
+                    className="text-blue-600 hover:underline"
+                  >
+                    Abrir
+                  </Link>
+                </td>
+              </tr>
+            ))}
+
+            {filtradas.length === 0 && (
+              <tr>
+                <td colSpan={5} className="p-4 text-center text-gray-500">
+                  Nenhuma tarefa encontrada.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </Layout>
   );
 }
