@@ -223,11 +223,8 @@ export default function TarefasPage() {
             defaultView={Views.MONTH}
             style={{ height: 650 }}
 
-            /* HORÁRIOS 6h — 18h */
-            min={new Date(2020, 1, 1, 6, 0)}
-            max={new Date(2020, 1, 1, 18, 0)}
-            step={30}
-            timeslots={1}
+          /* Nova API */
+      scrollToTime={new Date(2020, 1, 1, 8, 0)}
 
             popup
             onSelectEvent={(e) =>

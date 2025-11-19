@@ -1,6 +1,12 @@
 /* CSS oficial do React Big Calendar */
 @import "react-big-calendar/lib/css/react-big-calendar.css";
 
+/* ❗ Ocultar horários fora das 6h–18h */
+.rbc-time-content > * > .rbc-timeslot-group:nth-child(-n+12), /* antes das 6h */
+.rbc-time-content > * > .rbc-timeslot-group:nth-last-child(-n+12) { /* depois das 18h */
+  display: none !important;
+}
+
 /* Correções de layout dentro do CRM */
 .rbc-calendar {
   background: white;
