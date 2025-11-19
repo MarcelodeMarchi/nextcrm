@@ -7,20 +7,20 @@ import { db } from "@/lib/firebase";
 import {
   collection,
   onSnapshot,
-  query,
   orderBy,
+  query,
   updateDoc,
   doc,
 } from "firebase/firestore";
 
-// =======================
-// CALENDÁRIO
-// =======================
 import { Calendar, Views, dateFnsLocalizer } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import "react-big-calendar/lib/css/react-big-calendar.css";
+import "@/app/styles/calendar.css"; // CSS PARA LIMITAR HORÁRIOS
 
+// =======================
+// CONFIGURAÇÃO DO CALENDÁRIO
+// =======================
 const locales = { "pt-BR": ptBR };
 
 const localizer = dateFnsLocalizer({
@@ -31,19 +31,17 @@ const localizer = dateFnsLocalizer({
   locales,
 });
 
-// =======================
-// TIPO DE TAREFA
-// =======================
+// Tipo da Tarefa
 type Tarefa = {
   id: string;
   titulo: string;
-  concluido: boolean;
-  data: any;
   relacionadoA?: {
     tipo: "lead" | "cliente";
     id: string;
     nome: string;
   };
+  concluido: boolean;
+  data: any; // Firestore Timestamp
 };
 
 export default function TarefasPage() {
@@ -51,26 +49,26 @@ export default function TarefasPage() {
   const [aba, setAba] = useState<"lista" | "calendario">("lista");
 
   // =======================
-  // CARREGAR TAREFAS
+  // CARREGAR TAREFAS DO FIRESTORE
   // =======================
   useEffect(() => {
     const q = query(collection(db, "tarefas"), orderBy("data", "asc"));
 
     const unsub = onSnapshot(q, (snap) => {
-      setTarefas(
-        snap.docs.map((d) => ({
-          id: d.id,
-          ...d.data(),
-        })) as Tarefa[]
-      );
+      const data = snap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      })) as Tarefa[];
+
+      setTarefas(data);
     });
 
     return () => unsub();
   }, []);
 
-  const toggleConcluido = async (t: Tarefa) => {
-    await updateDoc(doc(db, "tarefas", t.id), {
-      concluido: !t.concluido,
+  const toggleConcluido = async (tarefa: Tarefa) => {
+    await updateDoc(doc(db, "tarefas", tarefa.id), {
+      concluido: !tarefa.concluido,
     });
   };
 
@@ -79,15 +77,13 @@ export default function TarefasPage() {
   // =======================
   const eventos = tarefas
     .filter((t) => t.data)
-    .map((t) => {
-      const dt = t.data.toDate();
-      return {
-        id: t.id,
-        title: t.titulo,
-        start: dt,
-        end: new Date(dt.getTime() + 60 * 60 * 1000), // 1h
-      };
-    });
+    .map((t) => ({
+      id: t.id,
+      title: t.titulo,
+      start: t.data.toDate(),
+      end: t.data.toDate(),
+      allDay: false,
+    }));
 
   return (
     <Layout>
@@ -128,9 +124,9 @@ export default function TarefasPage() {
         </button>
       </div>
 
-      {/* =======================
-          LISTA
-      ======================== */}
+      {/* ==========================
+          ABA LISTA
+      =========================== */}
       {aba === "lista" && (
         <div className="bg-white rounded-lg shadow border">
           <table className="w-full text-sm">
@@ -172,12 +168,12 @@ export default function TarefasPage() {
                   <td className="p-3">
                     {t.relacionadoA ? (
                       <Link
+                        className="text-blue-600 hover:underline"
                         href={`/${
                           t.relacionadoA.tipo === "lead"
                             ? "leads"
                             : "clientes"
                         }/${t.relacionadoA.id}`}
-                        className="text-blue-600 hover:underline"
                       >
                         {t.relacionadoA.nome}
                       </Link>
@@ -199,7 +195,10 @@ export default function TarefasPage() {
 
               {tarefas.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="p-4 text-center text-gray-500">
+                  <td
+                    colSpan={5}
+                    className="p-4 text-center text-gray-500"
+                  >
                     Nenhuma tarefa cadastrada.
                   </td>
                 </tr>
@@ -209,9 +208,9 @@ export default function TarefasPage() {
         </div>
       )}
 
-      {/* =======================
-          CALENDÁRIO
-      ======================== */}
+      {/* ==========================
+          ABA CALENDÁRIO
+      =========================== */}
       {aba === "calendario" && (
         <div className="bg-white rounded-lg shadow border p-4">
           <Calendar
@@ -223,13 +222,11 @@ export default function TarefasPage() {
             defaultView={Views.MONTH}
             style={{ height: 650 }}
 
-          /* Nova API */
-      scrollToTime={new Date(2020, 1, 1, 8, 0)}
+            /* Rolagem inicial */
+            scrollToTime={new Date(2020, 1, 1, 8, 0)}
 
             popup
-            onSelectEvent={(e) =>
-              (window.location.href = `/tarefas/${e.id}`)
-            }
+            onSelectEvent={(e) => (window.location.href = `/tarefas/${e.id}`)}
           />
         </div>
       )}
