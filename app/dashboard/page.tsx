@@ -1,56 +1,72 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Layout from "@/components/Layout";
+import { db } from "@/lib/firebase";
 import {
   collection,
-  getDocs,
-  orderBy,
+  onSnapshot,
   query,
+  orderBy,
   limit,
   where,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import { useEffect, useState } from "react";
+
+type Tarefa = {
+  id: string;
+  titulo: string;
+  data?: any; // Firestore Timestamp
+};
+
+type Apolice = {
+  id: string;
+  numero?: string;
+  refNome?: string;
+  fimVigencia?: any; // Firestore Timestamp
+};
 
 export default function DashboardPage() {
   const [totalLeads, setTotalLeads] = useState(0);
   const [totalClientes, setTotalClientes] = useState(0);
   const [totalApolices, setTotalApolices] = useState(0);
-  const [tarefasProximas, setTarefasProximas] = useState<any[]>([]);
-  const [renovacoes, setRenovacoes] = useState<any[]>([]);
+  const [tarefasProximas, setTarefasProximas] = useState<Tarefa[]>([]);
+  const [renovacoes, setRenovacoes] = useState<Apolice[]>([]);
 
   useEffect(() => {
-    carregarDados();
-  }, []);
-
-  const carregarDados = async () => {
     // ===== LEADS =====
-    const leadsSnap = await getDocs(collection(db, "leads"));
-    setTotalLeads(leadsSnap.docs.length);
+    const unsubLeads = onSnapshot(collection(db, "leads"), (snap) => {
+      setTotalLeads(snap.size);
+    });
 
     // ===== CLIENTES =====
-    const clientesSnap = await getDocs(collection(db, "clientes"));
-    setTotalClientes(clientesSnap.docs.length);
+    const unsubClientes = onSnapshot(collection(db, "clientes"), (snap) => {
+      setTotalClientes(snap.size);
+    });
 
     // ===== APÓLICES =====
-    const apSnap = await getDocs(collection(db, "todasApolices"));
-    setTotalApolices(apSnap.docs.length);
+    const unsubApolices = onSnapshot(
+      collection(db, "todasApolices"),
+      (snap) => {
+        setTotalApolices(snap.size);
+      }
+    );
 
-    // ===== PRÓXIMAS TAREFAS =====
+    // ===== PRÓXIMAS TAREFAS (5 mais próximas com data) =====
     const qTarefas = query(
       collection(db, "tarefas"),
       orderBy("data", "asc"),
       limit(5)
     );
 
-    const tarefas = (await getDocs(qTarefas)).docs.map((d) => ({
-      id: d.id,
-      ...d.data(),
-    }));
+    const unsubTarefas = onSnapshot(qTarefas, (snap) => {
+      const lista = snap.docs.map((d) => ({
+        id: d.id,
+        ...(d.data() as any),
+      }));
+      setTarefasProximas(lista);
+    });
 
-    setTarefasProximas(tarefas);
-
-    // ===== RENOVAÇÕES (30 DIAS) =====
+    // ===== RENOVAÇÕES 30 DIAS =====
     const hoje = new Date();
     const limite = new Date();
     limite.setDate(limite.getDate() + 30);
@@ -63,85 +79,135 @@ export default function DashboardPage() {
       limit(5)
     );
 
-    const renov = (await getDocs(qRen)).docs.map((d) => ({
-      id: d.id,
-      ...d.data(),
-    }));
+    const unsubRen = onSnapshot(qRen, (snap) => {
+      const lista = snap.docs.map((d) => ({
+        id: d.id,
+        ...(d.data() as any),
+      }));
+      setRenovacoes(lista);
+    });
 
-    setRenovacoes(renov);
-  };
+    return () => {
+      unsubLeads();
+      unsubClientes();
+      unsubApolices();
+      unsubTarefas();
+      unsubRen();
+    };
+  }, []);
 
   return (
     <Layout>
       <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
 
-      {/* CARDS */}
+      {/* CARDS RESUMO */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
 
-        <div className="bg-blue-600 text-white rounded-lg shadow p-6">
+        {/* LEADS */}
+        <div className="rounded-2xl p-6 shadow-md bg-gradient-to-br from-blue-600 to-blue-800 text-white">
           <p className="text-sm opacity-80">Total de Leads</p>
-          <p className="text-4xl font-bold">{totalLeads}</p>
+          <p className="text-4xl font-extrabold mt-1">{totalLeads}</p>
+          <p className="text-xs mt-2 opacity-80">
+            Leads ativos cadastrados no funil.
+          </p>
         </div>
 
-        <div className="bg-green-600 text-white rounded-lg shadow p-6">
+        {/* CLIENTES */}
+        <div className="rounded-2xl p-6 shadow-md bg-gradient-to-br from-emerald-600 to-emerald-800 text-white">
           <p className="text-sm opacity-80">Total de Clientes</p>
-          <p className="text-4xl font-bold">{totalClientes}</p>
+          <p className="text-4xl font-extrabold mt-1">{totalClientes}</p>
+          <p className="text-xs mt-2 opacity-80">
+            Clientes com cadastro ativo no CRM.
+          </p>
         </div>
 
-        <div className="bg-purple-600 text-white rounded-lg shadow p-6">
+        {/* APÓLICES */}
+        <div className="rounded-2xl p-6 shadow-md bg-gradient-to-br from-purple-600 to-purple-800 text-white">
           <p className="text-sm opacity-80">Total de Apólices</p>
-          <p className="text-4xl font-bold">{totalApolices}</p>
+          <p className="text-4xl font-extrabold mt-1">{totalApolices}</p>
+          <p className="text-xs mt-2 opacity-80">
+            Apólices registradas em todas as companhias.
+          </p>
         </div>
-
       </div>
 
       {/* PRÓXIMAS TAREFAS */}
-      <h2 className="text-xl font-bold mb-2">Próximas tarefas</h2>
+      <section className="mb-10">
+        <h2 className="text-xl font-bold mb-3">Próximas tarefas</h2>
+        <div className="bg-white rounded-2xl shadow border border-gray-100 p-5">
+          {tarefasProximas.length === 0 && (
+            <p className="text-gray-500 text-sm">
+              Nenhuma tarefa próxima cadastrada.
+            </p>
+          )}
 
-      <div className="bg-white rounded-lg shadow p-5 mb-10">
-        {tarefasProximas.length === 0 && (
-          <p className="text-gray-500">Nenhuma tarefa próxima.</p>
-        )}
+          {tarefasProximas.map((t) => {
+            const data = t.data?.toDate?.();
+            const dataFmt = data
+              ? data.toLocaleDateString("pt-BR")
+              : "Sem data";
 
-        {tarefasProximas.map((t) => {
-          const data = t.data?.toDate?.();
-          const dataFmt = data
-            ? data.toLocaleDateString("pt-BR")
-            : "Sem data";
+            const horaFmt = data
+              ? data.toLocaleTimeString("pt-BR", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "";
 
-          const horaFmt = data
-            ? data.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
-            : "";
-
-          return (
-            <div key={t.id} className="border-b py-2">
-              <p className="font-semibold">{t.titulo}</p>
-              <p className="text-xs text-gray-600">
-                {dataFmt} {horaFmt && `— ${horaFmt}`}
-              </p>
-            </div>
-          );
-        })}
-      </div>
+            return (
+              <div
+                key={t.id}
+                className="flex items-center justify-between border-b last:border-b-0 py-2"
+              >
+                <div>
+                  <p className="font-semibold text-sm">{t.titulo}</p>
+                  <p className="text-xs text-gray-600">
+                    {dataFmt}
+                    {horaFmt && ` — ${horaFmt}`}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
 
       {/* RENOVAÇÕES */}
-      <h2 className="text-xl font-bold mb-2">Renovações (30 dias)</h2>
-
-      <div className="bg-white rounded-lg shadow p-5">
-        {renovacoes.length === 0 && (
-          <p className="text-gray-500">Nenhuma renovação próxima.</p>
-        )}
-
-        {renovacoes.map((a) => (
-          <div key={a.id} className="border-b py-2">
-            <p className="font-semibold">{a.numero} — {a.refNome}</p>
-            <p className="text-xs text-gray-600">
-              Vence em {a.fimVigencia?.toDate?.().toLocaleDateString("pt-BR")}
+      <section>
+        <h2 className="text-xl font-bold mb-3">
+          Renovações (próximos 30 dias)
+        </h2>
+        <div className="bg-white rounded-2xl shadow border border-gray-100 p-5">
+          {renovacoes.length === 0 && (
+            <p className="text-gray-500 text-sm">
+              Nenhuma apólice para renovar nos próximos 30 dias.
             </p>
-          </div>
-        ))}
-      </div>
+          )}
 
+          {renovacoes.map((a) => {
+            const dt = a.fimVigencia?.toDate?.();
+            const dtFmt = dt
+              ? dt.toLocaleDateString("pt-BR")
+              : "Data não informada";
+
+            return (
+              <div
+                key={a.id}
+                className="flex items-center justify-between border-b last:border-b-0 py-2"
+              >
+                <div>
+                  <p className="font-semibold text-sm">
+                    {a.numero || "Sem número"} — {a.refNome || "Sem nome"}
+                  </p>
+                  <p className="text-xs text-gray-600">
+                    Vence em {dtFmt}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
     </Layout>
   );
 }
