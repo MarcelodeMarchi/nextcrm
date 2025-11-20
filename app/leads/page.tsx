@@ -95,7 +95,6 @@ export default function LeadsKanban() {
     const origem = source.droppableId as Status;
     const destino = destination.droppableId as Status;
 
-    // Mudou de coluna
     if (origem !== destino) {
       await updateDoc(doc(db, "leads", draggableId), {
         status: destino,
@@ -104,7 +103,6 @@ export default function LeadsKanban() {
       return;
     }
 
-    // Reordenar dentro da mesma coluna
     const novaLista = [...colunas[origem]];
     const [removido] = novaLista.splice(source.index, 1);
     novaLista.splice(destination.index, 0, removido);
@@ -128,9 +126,10 @@ export default function LeadsKanban() {
     });
   };
 
-  const enviarWhatsApp = (telefone: string) => {
-    if (!telefone) return;
+  const enviarWhatsApp = (telefone: string, e: any) => {
+    e.stopPropagation();
     const numero = telefone.replace(/\D/g, "");
+    if (!numero) return;
     window.open(`https://wa.me/1${numero}`, "_blank");
   };
 
@@ -183,18 +182,21 @@ export default function LeadsKanban() {
                             ref={prov.innerRef}
                             {...prov.draggableProps}
                             {...prov.dragHandleProps}
+                            onClick={() =>
+                              (window.location.href = `/leads/${lead.id}`)
+                            }
                             className={`bg-white border ${CORES_CARD[coluna]} shadow p-3 rounded mb-3 cursor-pointer`}
                           >
-                            <Link href={`/leads/${lead.id}`}>
-                              <p className="font-bold">{lead.nome}</p>
-                            </Link>
+                            <p className="font-bold">{lead.nome}</p>
 
                             <p className="text-xs text-gray-600 mt-1">
                               {lead.telefone || "Sem telefone"}
                             </p>
 
                             <button
-                              onClick={() => enviarWhatsApp(lead.telefone)}
+                              onClick={(e) =>
+                                enviarWhatsApp(lead.telefone, e)
+                              }
                               className="text-green-600 font-semibold text-xs mt-1 underline"
                             >
                               WhatsApp
