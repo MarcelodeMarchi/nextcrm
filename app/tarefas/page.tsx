@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import Layout from "@/components/Layout";
 import Link from "next/link";
 import { db } from "@/lib/firebase";
@@ -11,24 +11,20 @@ import {
   orderBy,
   updateDoc,
   doc,
+  addDoc,
+  serverTimestamp,
 } from "firebase/firestore";
 
-import {
-  Calendar,
-  Views,
-  dateFnsLocalizer,
-} from "react-big-calendar";
-
+// 📌 CALENDÁRIO
+import { Calendar, Views, dateFnsLocalizer } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 import "react-big-calendar/lib/css/react-big-calendar.css";
-import "./calendar.css";
 
 // =======================
 // CONFIGURAÇÃO DO CALENDÁRIO
 // =======================
-
 const locales = { "pt-BR": ptBR };
 
 const localizer = dateFnsLocalizer({
@@ -40,29 +36,14 @@ const localizer = dateFnsLocalizer({
 });
 
 // =======================
-// HELPER — Corrigir timezone America/New_York
-// =======================
-const fixTimezone = (dt: any) => {
-  try {
-    if (!dt) return null;
-    if (dt?.toDate) dt = dt.toDate();
-
-    const iso = dt.toISOString().replace("Z", "");
-    return new Date(iso);
-  } catch {
-    return dt;
-  }
-};
-
-// =======================
-// TIPAGENS
+// TIPOS
 // =======================
 type Tarefa = {
   id: string;
   titulo: string;
-  concluido: boolean;
-  data: any;
+  data?: any;
   horario?: string;
+  concluido: boolean;
   relacionadoA?: {
     tipo: "lead" | "cliente";
     id: string;
@@ -76,67 +57,20 @@ export default function TarefasPage() {
   const [busca, setBusca] = useState("");
 
   // =======================
-  // CARREGAR TAREFAS
+  // CARREGAR LISTA
   // =======================
   useEffect(() => {
     const q = query(collection(db, "tarefas"), orderBy("data", "asc"));
 
     const unsub = onSnapshot(q, (snap) => {
-      const lista = snap.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-      })) as Tarefa[];
-
-      setTarefas(lista);
+      setTarefas(
+        snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Tarefa[]
+      );
     });
 
-    return () => unsub();
+    return unsub;
   }, []);
 
-  // =======================
-  // FILTRO
-  // =======================
-  const tarefasFiltradas = tarefas.filter((t) => {
-    const termo = busca.toLowerCase();
-    return (
-      t.titulo?.toLowerCase().includes(termo) ||
-      t.relacionadoA?.nome?.toLowerCase().includes(termo)
-    );
-  });
-
-  // =======================
-  // EVENTOS PARA O CALENDÁRIO
-  // =======================
-  const eventos = useMemo(() => {
-    return tarefas
-      .filter((t) => t.data)
-      .map((t) => {
-        const baseDate = fixTimezone(t.data);
-        if (!baseDate) return null;
-
-        let start = new Date(baseDate);
-        let end = new Date(baseDate);
-
-        if (t.horario) {
-          const [h, m] = t.horario.split(":");
-          start.setHours(Number(h), Number(m), 0);
-          end = new Date(start.getTime() + 60 * 60 * 1000); // +1h
-        }
-
-        return {
-          id: t.id,
-          title: t.titulo,
-          start,
-          end,
-          allDay: !t.horario,
-        };
-      })
-      .filter(Boolean) as any[];
-  }, [tarefas]);
-
-  // =======================
-  // MARCAR TAREFA COMO CONCLUÍDA
-  // =======================
   const toggleConcluido = async (t: Tarefa) => {
     await updateDoc(doc(db, "tarefas", t.id), {
       concluido: !t.concluido,
@@ -144,19 +78,50 @@ export default function TarefasPage() {
   };
 
   // =======================
-  // CLICK NO DIA → criar nova
+  // CRIAR TAREFA AO CLICAR NO CALENDÁRIO
   // =======================
-  const criarTarefaNoDia = (slot: any) => {
-    const dia = slot.start.toISOString().slice(0, 10);
-    window.location.href = `/tarefas/novo?data=${dia}`;
+  const criarTarefaNoDia = async (slot: any) => {
+    const data = new Date(slot.start);
+
+    await addDoc(collection(db, "tarefas"), {
+      titulo: "Nova tarefa",
+      data,
+      horario: "09:00",
+      concluido: false,
+      criadoEm: serverTimestamp(),
+    });
   };
+
+  // =======================
+  // EVENTOS DO CALENDÁRIO
+  // =======================
+  const eventos = tarefas
+    .filter((t) => t.data)
+    .map((t) => {
+      const dataBase = t.data?.toDate ? t.data.toDate() : new Date(t.data);
+
+      let inicio = new Date(dataBase);
+      let fim = new Date(dataBase);
+
+      if (t.horario) {
+        const [h, m] = t.horario.split(":");
+        inicio.setHours(Number(h), Number(m));
+        fim = new Date(inicio.getTime() + 60 * 60 * 1000);
+      }
+
+      return {
+        id: t.id,
+        title: t.titulo,
+        start: inicio,
+        end: fim,
+      };
+    });
 
   return (
     <Layout>
       {/* CABEÇALHO */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Tarefas</h1>
-
         <Link
           href="/tarefas/novo"
           className="px-4 py-2 bg-black text-white rounded-md text-sm"
@@ -165,23 +130,12 @@ export default function TarefasPage() {
         </Link>
       </div>
 
-      {/* BUSCA */}
-      <input
-        type="text"
-        placeholder="Buscar tarefa..."
-        className="border p-2 rounded mb-4 w-full"
-        value={busca}
-        onChange={(e) => setBusca(e.target.value)}
-      />
-
       {/* ABAS */}
       <div className="flex gap-4 mb-6 border-b pb-2">
         <button
           onClick={() => setAba("lista")}
           className={`px-4 py-2 rounded ${
-            aba === "lista"
-              ? "bg-black text-white"
-              : "bg-gray-200 text-gray-700"
+            aba === "lista" ? "bg-black text-white" : "bg-gray-200"
           }`}
         >
           Lista
@@ -190,18 +144,27 @@ export default function TarefasPage() {
         <button
           onClick={() => setAba("calendario")}
           className={`px-4 py-2 rounded ${
-            aba === "calendario"
-              ? "bg-black text-white"
-              : "bg-gray-200 text-gray-700"
+            aba === "calendario" ? "bg-black text-white" : "bg-gray-200"
           }`}
         >
           Calendário
         </button>
       </div>
 
-      {/* ==========================
+      {/* FILTRO */}
+      {aba === "lista" && (
+        <input
+          type="text"
+          placeholder="Buscar tarefa..."
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          className="mb-4 w-full border p-3 rounded"
+        />
+      )}
+
+      {/* ======================
           LISTA
-      =========================== */}
+      ======================= */}
       {aba === "lista" && (
         <div className="bg-white rounded-lg shadow border">
           <table className="w-full text-sm">
@@ -216,50 +179,46 @@ export default function TarefasPage() {
             </thead>
 
             <tbody>
-              {tarefasFiltradas.map((t) => (
-                <tr key={t.id} className="border-t">
-                  <td className="p-3">
-                    <input
-                      type="checkbox"
-                      checked={t.concluido}
-                      onChange={() => toggleConcluido(t)}
-                    />
-                  </td>
+              {tarefas
+                .filter((t) =>
+                  t.titulo.toLowerCase().includes(busca.toLowerCase())
+                )
+                .map((t) => (
+                  <tr key={t.id} className="border-t">
+                    <td className="p-3">
+                      <input
+                        type="checkbox"
+                        checked={t.concluido}
+                        onChange={() => toggleConcluido(t)}
+                      />
+                    </td>
 
-                  <td className="p-3">{t.titulo}</td>
+                    <td className="p-3">{t.titulo}</td>
 
-                  <td className="p-3">
-                    {fixTimezone(t.data)?.toLocaleDateString("pt-BR")}
-                  </td>
+                    <td className="p-3">
+                      {t.data?.toDate?.().toLocaleDateString("pt-BR") || "-"}
+                    </td>
 
-                  <td className="p-3">{t.horario || "-"}</td>
+                    <td className="p-3">{t.horario || "-"}</td>
 
-                  <td className="p-3">
-                    <Link
-                      href={`/tarefas/${t.id}`}
-                      className="text-blue-600 hover:underline"
-                    >
-                      Abrir
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-
-              {tarefasFiltradas.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="text-center p-4 text-gray-500">
-                    Nenhuma tarefa encontrada.
-                  </td>
-                </tr>
-              )}
+                    <td className="p-3">
+                      <Link
+                        href={`/tarefas/${t.id}`}
+                        className="text-blue-600"
+                      >
+                        Abrir
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>
       )}
 
-      {/* ==========================
+      {/* ======================
           CALENDÁRIO
-      =========================== */}
+      ======================= */}
       {aba === "calendario" && (
         <div className="bg-white rounded-lg shadow border p-4">
           <Calendar
@@ -270,7 +229,6 @@ export default function TarefasPage() {
             views={[Views.MONTH, Views.WEEK, Views.DAY]}
             defaultView={Views.MONTH}
             style={{ height: 600 }}
-            selectable
             onSelectSlot={criarTarefaNoDia}
             onSelectEvent={(e) =>
               (window.location.href = `/tarefas/${e.id}`)
