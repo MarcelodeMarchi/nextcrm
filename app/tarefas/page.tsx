@@ -126,7 +126,6 @@ export default function TarefasPage() {
       {aba === "lista" && (
         <div className="bg-white rounded-lg shadow border p-4">
 
-          {/* FILTRO */}
           <input
             type="text"
             placeholder="Filtrar tarefas..."
@@ -217,25 +216,26 @@ export default function TarefasPage() {
       {/* CALENDÁRIO */}
       {aba === "calendario" && (
         <div className="bg-white rounded-lg shadow border p-4">
-          {/* @ts-expect-error react-big-calendar aceita min/max/scrollToTime */}
-          <Calendar
-            {...{
-              localizer,
-              events: eventos,
-              startAccessor: "start",
-              endAccessor: "end",
-              views: [Views.MONTH, Views.WEEK, Views.DAY],
-              defaultView: Views.MONTH,
-              style: { height: 600 },
 
+          <Calendar
+            localizer={localizer}
+            events={eventos}
+            startAccessor="start"
+            endAccessor="end"
+            views={[Views.MONTH, Views.WEEK, Views.DAY]}
+            defaultView={Views.MONTH}
+            style={{ height: 600 }}
+
+            {...({
               min: new Date(2020, 0, 1, 6, 0),
               max: new Date(2020, 0, 1, 18, 0),
               scrollToTime: new Date(2020, 0, 1, 8, 0),
+            } as any)}
 
-              popup: true,
-              onSelectEvent: (e: any) =>
-                (window.location.href = `/tarefas/${e.id}`)
-            }}
+            popup
+            onSelectEvent={(e: any) =>
+              (window.location.href = `/tarefas/${e.id}`)
+            }
           />
         </div>
       )}
