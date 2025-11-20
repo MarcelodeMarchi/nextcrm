@@ -6,243 +6,109 @@ import { useParams, useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 
-// 🔹 Tipo da Apólice
-type Apolice = {
-  id: string;
-  numero: string;
-  tipo: string;
-  seguradora: string;
-  premio: number;
-  moeda: string;
-  inicioVigencia: any;
-  fimVigencia: any;
-  notas?: string;
-  refTipo: "lead" | "cliente";
-  refId: string;
-};
-
-export default function EditarApolice() {
+export default function EditarApolicePage() {
   const { id } = useParams();
   const router = useRouter();
 
-  const [apolice, setApolice] = useState<Apolice | null>(null);
-  const [cliente, setCliente] = useState<any>(null);
+  const [apolice, setApolice] = useState<any>(null);
 
-  // Campos editáveis
-  const [numero, setNumero] = useState("");
-  const [tipo, setTipo] = useState("vida");
-  const [seguradora, setSeguradora] = useState("");
-  const [premio, setPremio] = useState("");
-  const [moeda, setMoeda] = useState("USD");
-  const [inicio, setInicio] = useState("");
-  const [fim, setFim] = useState("");
-  const [notas, setNotas] = useState("");
+  const seguradoras = ["Pan American", "National", "Prudential", "John Hancock"];
 
   useEffect(() => {
-    const load = async () => {
+    const carregar = async () => {
       const ref = doc(db, "todasApolices", id as string);
       const snap = await getDoc(ref);
 
-      if (!snap.exists()) return;
-
-      const dataFS = snap.data() as any;
-
-      // 🔥 Construção segura do objeto tipado
-      const ap: Apolice = {
-        id: id as string,
-        numero: dataFS.numero || "",
-        tipo: dataFS.tipo || "vida",
-        seguradora: dataFS.seguradora || "",
-        premio: dataFS.premio || 0,
-        moeda: dataFS.moeda || "USD",
-        inicioVigencia: dataFS.inicioVigencia || null,
-        fimVigencia: dataFS.fimVigencia || null,
-        notas: dataFS.notas || "",
-        refTipo: dataFS.refTipo,
-        refId: dataFS.refId,
-      };
-
-      setApolice(ap);
-
-      // Preencher campos
-      setNumero(ap.numero);
-      setTipo(ap.tipo);
-      setSeguradora(ap.seguradora);
-      setPremio(String(ap.premio));
-      setMoeda(ap.moeda);
-
-      setInicio(
-        ap.inicioVigencia
-          ? new Date(ap.inicioVigencia.toDate()).toISOString().slice(0, 10)
-          : ""
-      );
-
-      setFim(
-        ap.fimVigencia
-          ? new Date(ap.fimVigencia.toDate()).toISOString().slice(0, 10)
-          : ""
-      );
-
-      setNotas(ap.notas || "");
-
-      // 🔍 Carregar cliente vinculado
-      if (ap.refTipo && ap.refId) {
-        const col = ap.refTipo === "lead" ? "leads" : "clientes";
-        const snapC = await getDoc(doc(db, col, ap.refId));
-
-        if (snapC.exists()) {
-          setCliente({
-            id: ap.refId,
-            ...snapC.data(),
-          });
-        }
+      if (!snap.exists()) {
+        router.replace("/apolices");
+        return;
       }
+
+      setApolice({ id, ...snap.data() });
     };
 
-    load();
-  }, [id]);
+    carregar();
+  }, [id, router]);
 
   const salvar = async () => {
-    if (!apolice) return;
-
-    const atualizado = {
-      numero,
-      tipo,
-      seguradora,
-      premio: Number(premio),
-      moeda,
-      inicioVigencia: inicio ? new Date(inicio) : null,
-      fimVigencia: fim ? new Date(fim) : null,
-      notas,
-    };
-
-    // Atualizar coleção global
-    await updateDoc(doc(db, "todasApolices", id as string), atualizado);
-
-    // Atualizar subcoleção original
-    const col = apolice.refTipo === "lead" ? "leads" : "clientes";
-
-    await updateDoc(
-      doc(db, col, apolice.refId, "apolices", id as string),
-      atualizado
-    );
-
-    alert("Apólice atualizada com sucesso!");
+    await updateDoc(doc(db, "todasApolices", id as string), apolice);
+    alert("Apólice atualizada!");
     router.push(`/apolices/${id}`);
   };
 
-  if (!apolice) return <Layout>Carregando...</Layout>;
+  if (!apolice) {
+    return (
+      <Layout>
+        <p>Carregando...</p>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
       <h1 className="text-2xl font-bold mb-6">Editar Apólice</h1>
 
-      <div className="bg-white border rounded shadow p-4 space-y-4 max-w-xl">
+      <div className="bg-white border rounded shadow p-6 space-y-4 max-w-xl">
 
         {/* Número */}
         <div>
-          <label>Número</label>
+          <label className="block text-sm font-medium">Número</label>
           <input
             className="border rounded px-3 py-2 w-full"
-            value={numero}
-            onChange={(e) => setNumero(e.target.value)}
+            value={apolice.numero}
+            onChange={(e) =>
+              setApolice({ ...apolice, numero: e.target.value })
+            }
           />
         </div>
 
         {/* Tipo */}
         <div>
-          <label>Tipo</label>
-          <select
+          <label className="block text-sm font-medium">Tipo</label>
+          <input
             className="border rounded px-3 py-2 w-full"
-            value={tipo}
-            onChange={(e) => setTipo(e.target.value)}
-          >
-            <option value="vida">Vida</option>
-            <option value="saude">Saúde</option>
-            <option value="residencial">Residencial</option>
-            <option value="comercial">Comercial</option>
-          </select>
+            value={apolice.tipo}
+            onChange={(e) =>
+              setApolice({ ...apolice, tipo: e.target.value })
+            }
+          />
         </div>
 
         {/* Seguradora */}
         <div>
-          <label>Seguradora</label>
+          <label className="block text-sm font-medium">Seguradora</label>
           <input
-            list="seguradoras"
+            list="listaSeguradoras"
             className="border rounded px-3 py-2 w-full"
-            value={seguradora}
-            onChange={(e) => setSeguradora(e.target.value)}
+            value={apolice.seguradora}
+            onChange={(e) =>
+              setApolice({ ...apolice, seguradora: e.target.value })
+            }
           />
-
-          <datalist id="seguradoras">
-            <option value="Pan American" />
-            <option value="National" />
+          <datalist id="listaSeguradoras">
+            {seguradoras.map((s) => (
+              <option key={s} value={s} />
+            ))}
           </datalist>
         </div>
 
-        {/* Prêmio / moeda */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label>Prêmio</label>
-            <input
-              className="border rounded px-3 py-2 w-full"
-              value={premio}
-              onChange={(e) => setPremio(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <label>Moeda</label>
-            <select
-              className="border rounded px-3 py-2 w-full"
-              value={moeda}
-              onChange={(e) => setMoeda(e.target.value)}
-            >
-              <option value="USD">USD</option>
-              <option value="BRL">BRL</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Vigência */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label>Início da Vigência</label>
-            <input
-              type="date"
-              className="border rounded px-3 py-2 w-full"
-              value={inicio}
-              onChange={(e) => setInicio(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <label>Fim da Vigência</label>
-            <input
-              type="date"
-              className="border rounded px-3 py-2 w-full"
-              value={fim}
-              onChange={(e) => setFim(e.target.value)}
-            />
-          </div>
-        </div>
-
-        {/* Notas */}
+        {/* Prêmio */}
         <div>
-          <label>Notas</label>
-          <textarea
+          <label className="block text-sm font-medium">Prêmio</label>
+          <input
             className="border rounded px-3 py-2 w-full"
-            rows={4}
-            value={notas}
-            onChange={(e) => setNotas(e.target.value)}
+            value={apolice.premio}
+            onChange={(e) =>
+              setApolice({ ...apolice, premio: e.target.value })
+            }
           />
         </div>
 
-        {/* Botões */}
-        <div className="flex gap-3">
+        {/* BOTÕES */}
+        <div className="flex gap-3 mt-4">
           <button
             onClick={salvar}
-            className="px-4 py-2 bg-black text-white rounded"
+            className="px-4 py-2 bg-green-600 text-white rounded"
           >
             Salvar
           </button>
