@@ -4,152 +4,234 @@ import { useEffect, useState } from "react";
 import Layout from "@/components/Layout";
 import { useParams, useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
-import { doc, getDoc, deleteDoc } from "firebase/firestore";
-
-// Tipo da apólice
-type Apolice = {
-  id: string;
-  numero: string;
-  tipo: string;
-  seguradora: string;
-  premio: number;
-  moeda: string;
-  inicioVigencia: any;
-  fimVigencia: any;
-  notas?: string;
-
-  refTipo: "lead" | "cliente";
-  refId: string;
-  refNome?: string;
-};
+import { doc, getDoc, updateDoc, deleteDoc } from "firebase/firestore";
 
 export default function ApolicePage() {
   const { id } = useParams();
   const router = useRouter();
 
-  const [apolice, setApolice] = useState<Apolice | null>(null);
-  const [cliente, setCliente] = useState<any>(null);
+  const [apolice, setApolice] = useState<any>(null);
+  const [editando, setEditando] = useState(false);
+
+  // 🔵 LISTA DE SEGURADORAS
+  const seguradoras = ["Pan American", "National", "Prudential", "John Hancock"];
 
   useEffect(() => {
-    const load = async () => {
+    const carregar = async () => {
       const ref = doc(db, "todasApolices", id as string);
       const snap = await getDoc(ref);
-      if (!snap.exists()) return;
 
-      const raw = snap.data() as any;
-
-      const ap: Apolice = {
-        id: id as string,
-        numero: raw.numero || "",
-        tipo: raw.tipo || "",
-        seguradora: raw.seguradora || "",
-        premio: raw.premio || 0,
-        moeda: raw.moeda || "USD",
-        inicioVigencia: raw.inicioVigencia || null,
-        fimVigencia: raw.fimVigencia || null,
-        notas: raw.notas || "",
-
-        refTipo: raw.refTipo,
-        refId: raw.refId,
-        refNome: raw.refNome || "",
-      };
-
-      setApolice(ap);
-
-      // Carregar o cliente vinculado
-      if (ap.refTipo && ap.refId) {
-        const col = ap.refTipo === "lead" ? "leads" : "clientes";
-        const snapC = await getDoc(doc(db, col, ap.refId));
-
-        if (snapC.exists()) {
-          setCliente({
-            id: ap.refId,
-            ...snapC.data(),
-          });
-        }
+      if (!snap.exists()) {
+        router.replace("/apolices");
+        return;
       }
+
+      setApolice({ id, ...snap.data() });
     };
 
-    load();
-  }, [id]);
+    carregar();
+  }, [id, router]);
 
-  const deletar = async () => {
+  const salvar = async () => {
+    await updateDoc(doc(db, "todasApolices", id as string), apolice);
+
+    // 🔄 Atualizar também no cliente/lead
+    if (apolice.refTipo && apolice.refId) {
+      await updateDoc(
+        doc(db, apolice.refTipo === "lead" ? "leads" : "clientes", apolice.refId, "apolices", id as string),
+        apolice
+      );
+    }
+
+    alert("Apólice salva!");
+    setEditando(false);
+  };
+
+  const excluir = async () => {
     if (!confirm("Tem certeza que deseja excluir esta apólice?")) return;
 
     await deleteDoc(doc(db, "todasApolices", id as string));
 
-    if (apolice) {
-      const col = apolice.refTipo === "lead" ? "leads" : "clientes";
-      await deleteDoc(doc(db, col, apolice.refId, "apolices", id as string));
+    // ❗ Remover também do cliente/lead
+    if (apolice.refTipo && apolice.refId) {
+      await deleteDoc(
+        doc(db, apolice.refTipo === "lead" ? "leads" : "clientes", apolice.refId, "apolices", id as string)
+      );
     }
 
     alert("Apólice excluída!");
     router.push("/apolices");
   };
 
-  if (!apolice) return <Layout>Carregando...</Layout>;
+  const enviarWhats = (numero: string) => {
+    const digits = numero.replace(/\D/g, "");
+    if (!digits) return alert("Cliente sem telefone!");
+
+    window.open(`https://wa.me/1${digits}`, "_blank");
+  };
+
+  if (!apolice) {
+    return (
+      <Layout>
+        <p>Carregando...</p>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
-      <h1 className="text-2xl font-bold mb-6">Apólice #{apolice.numero}</h1>
+      <h1 className="text-2xl font-bold mb-4">Apólice</h1>
 
-      <div className="bg-white border rounded shadow p-6 space-y-4 max-w-2xl">
-        
-        <p><strong>Tipo:</strong> {apolice.tipo}</p>
-        <p><strong>Seguradora:</strong> {apolice.seguradora}</p>
-        <p><strong>Prêmio:</strong> {apolice.moeda} {apolice.premio}</p>
+      <div className="bg-white border rounded shadow p-6 space-y-4 max-w-xl">
 
-        <p>
-          <strong>Início Vigência:</strong>{" "}
-          {apolice.inicioVigencia?.toDate().toLocaleDateString()}
-        </p>
+        {/* Número */}
+        <div>
+          <label className="block text-sm font-medium">Número</label>
+          <input
+            className="border rounded px-3 py-2 w-full"
+            disabled={!editando}
+            value={apolice.numero}
+            onChange={(e) => setApolice({ ...apolice, numero: e.target.value })}
+          />
+        </div>
 
-        <p>
-          <strong>Fim Vigência:</strong>{" "}
-          {apolice.fimVigencia?.toDate().toLocaleDateString()}
-        </p>
-
-        <p><strong>Notas:</strong> {apolice.notas || "—"}</p>
-
-        <hr />
-
-        {/* Cliente / Lead vinculado */}
-        {cliente && (
-          <div className="bg-gray-50 p-4 rounded border">
-            <h2 className="font-semibold mb-2">Cliente / Lead vinculado</h2>
-
-            <p><strong>Nome:</strong> {cliente.nome}</p>
-            <p><strong>Telefone:</strong> {cliente.telefone}</p>
-            <p><strong>E-mail:</strong> {cliente.email}</p>
-
-            <button
-              className="mt-3 px-3 py-1 bg-black text-white rounded"
-              onClick={() =>
-                router.push(
-                  `/${apolice.refTipo === "lead" ? "leads" : "clientes"}/${cliente.id}`
-                )
-              }
-            >
-              Abrir cadastro
-            </button>
-          </div>
-        )}
-
-        <div className="flex gap-3 mt-6">
-          <button
-            className="px-4 py-2 bg-black text-white rounded"
-            onClick={() => router.push(`/apolices/${id}/editar`)}
+        {/* Tipo */}
+        <div>
+          <label className="block text-sm font-medium">Tipo</label>
+          <select
+            className="border rounded px-3 py-2 w-full"
+            disabled={!editando}
+            value={apolice.tipo}
+            onChange={(e) => setApolice({ ...apolice, tipo: e.target.value })}
           >
-            Editar
+            <option value="vida">Vida</option>
+            <option value="saude">Saúde</option>
+            <option value="residencial">Residencial</option>
+            <option value="comercial">Comercial</option>
+          </select>
+        </div>
+
+        {/* Seguradora (com filtro datalist) */}
+        <div>
+          <label className="block text-sm font-medium">Seguradora</label>
+          <input
+            list="listaSeguradoras"
+            className="border rounded px-3 py-2 w-full"
+            disabled={!editando}
+            value={apolice.seguradora || ""}
+            onChange={(e) => setApolice({ ...apolice, seguradora: e.target.value })}
+          />
+          <datalist id="listaSeguradoras">
+            {seguradoras.map((s) => (
+              <option key={s} value={s} />
+            ))}
+          </datalist>
+        </div>
+
+        {/* Prêmio */}
+        <div>
+          <label className="block text-sm font-medium">Prêmio</label>
+          <input
+            className="border rounded px-3 py-2 w-full"
+            disabled={!editando}
+            value={apolice.premio}
+            onChange={(e) => setApolice({ ...apolice, premio: e.target.value })}
+          />
+        </div>
+
+        {/* Vigência */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium">Início</label>
+            <input
+              type="date"
+              disabled={!editando}
+              className="border rounded px-3 py-2 w-full"
+              value={
+                apolice.inicioVigencia?.toDate
+                  ? apolice.inicioVigencia.toDate().toISOString().slice(0, 10)
+                  : ""
+              }
+              onChange={(e) =>
+                setApolice({ ...apolice, inicioVigencia: new Date(e.target.value) })
+              }
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium">Fim</label>
+            <input
+              type="date"
+              disabled={!editando}
+              className="border rounded px-3 py-2 w-full"
+              value={
+                apolice.fimVigencia?.toDate
+                  ? apolice.fimVigencia.toDate().toISOString().slice(0, 10)
+                  : ""
+              }
+              onChange={(e) =>
+                setApolice({ ...apolice, fimVigencia: new Date(e.target.value) })
+              }
+            />
+          </div>
+        </div>
+
+        {/* Notas */}
+        <div>
+          <label className="block text-sm font-medium">Notas</label>
+          <textarea
+            className="border rounded px-3 py-2 w-full"
+            rows={3}
+            disabled={!editando}
+            value={apolice.notas || ""}
+            onChange={(e) => setApolice({ ...apolice, notas: e.target.value })}
+          />
+        </div>
+
+        {/* BOTÕES */}
+        <div className="flex gap-3 mt-4">
+
+          {!editando ? (
+            <button
+              onClick={() => setEditando(true)}
+              className="px-4 py-2 bg-black text-white rounded"
+            >
+              Editar
+            </button>
+          ) : (
+            <button
+              onClick={salvar}
+              className="px-4 py-2 bg-green-600 text-white rounded"
+            >
+              Salvar
+            </button>
+          )}
+
+          {/* WhatsApp */}
+          {apolice.telefoneCliente && (
+            <button
+              onClick={() => enviarWhats(apolice.telefoneCliente)}
+              className="px-4 py-2 bg-green-600 text-white rounded"
+            >
+              WhatsApp
+            </button>
+          )}
+
+          <button
+            onClick={() => router.push("/apolices")}
+            className="px-4 py-2 bg-gray-300 rounded"
+          >
+            Voltar
           </button>
 
           <button
-            className="px-4 py-2 bg-red-500 text-white rounded"
-            onClick={deletar}
+            onClick={excluir}
+            className="px-4 py-2 bg-red-600 text-white rounded ml-auto"
           >
             Excluir
           </button>
         </div>
+
       </div>
     </Layout>
   );
