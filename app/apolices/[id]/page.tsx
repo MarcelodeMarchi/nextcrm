@@ -4,17 +4,20 @@ import { useEffect, useState } from "react";
 import Layout from "@/components/Layout";
 import { useParams, useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, deleteDoc } from "firebase/firestore";
 
 export default function ApolicePage() {
   const { id } = useParams();
   const router = useRouter();
 
   const [apolice, setApolice] = useState<any>(null);
-  const [cliente, setCliente] = useState<any>(null);
+  const [editando, setEditando] = useState(false);
+
+  // 🔵 LISTA DE SEGURADORAS
+  const seguradoras = ["Pan American", "National", "Prudential", "John Hancock"];
 
   useEffect(() => {
-    const load = async () => {
+    const carregar = async () => {
       const ref = doc(db, "todasApolices", id as string);
       const snap = await getDoc(ref);
 
@@ -23,30 +26,48 @@ export default function ApolicePage() {
         return;
       }
 
-      const dados = snap.data();
-      setApolice({ id, ...dados });
-
-      // Carregar cliente vinculado
-      if (dados.refTipo && dados.refId) {
-        const col = dados.refTipo === "lead" ? "leads" : "clientes";
-        const snapC = await getDoc(doc(db, col, dados.refId));
-
-        if (snapC.exists()) {
-          setCliente({ id: dados.refId, ...snapC.data() });
-        }
-      }
+      setApolice({ id, ...snap.data() });
     };
 
-    load();
+    carregar();
   }, [id, router]);
 
-  const abrirWhatsApp = () => {
-    if (!cliente?.telefone) return alert("Cliente sem telefone cadastrado!");
+  const salvar = async () => {
+    await updateDoc(doc(db, "todasApolices", id as string), apolice);
 
-    const numero = cliente.telefone.replace(/\D/g, "");
-    if (!numero) return;
+    // 🔄 Atualizar também no cliente/lead
+    if (apolice.refTipo && apolice.refId) {
+      await updateDoc(
+        doc(db, apolice.refTipo === "lead" ? "leads" : "clientes", apolice.refId, "apolices", id as string),
+        apolice
+      );
+    }
 
-    window.open(`https://wa.me/1${numero}`, "_blank");
+    alert("Apólice salva!");
+    setEditando(false);
+  };
+
+  const excluir = async () => {
+    if (!confirm("Tem certeza que deseja excluir esta apólice?")) return;
+
+    await deleteDoc(doc(db, "todasApolices", id as string));
+
+    // ❗ Remover também do cliente/lead
+    if (apolice.refTipo && apolice.refId) {
+      await deleteDoc(
+        doc(db, apolice.refTipo === "lead" ? "leads" : "clientes", apolice.refId, "apolices", id as string)
+      );
+    }
+
+    alert("Apólice excluída!");
+    router.push("/apolices");
+  };
+
+  const enviarWhats = (numero: string) => {
+    const digits = numero.replace(/\D/g, "");
+    if (!digits) return alert("Cliente sem telefone!");
+
+    window.open(`https://wa.me/1${digits}`, "_blank");
   };
 
   if (!apolice) {
@@ -59,84 +80,142 @@ export default function ApolicePage() {
 
   return (
     <Layout>
-      <h1 className="text-2xl font-bold mb-6">Apólice</h1>
+      <h1 className="text-2xl font-bold mb-4">Apólice</h1>
 
       <div className="bg-white border rounded shadow p-6 space-y-4 max-w-xl">
 
+        {/* Número */}
         <div>
-          <p className="text-sm text-gray-500">Número</p>
-          <p className="text-lg font-semibold">{apolice.numero}</p>
+          <label className="block text-sm font-medium">Número</label>
+          <input
+            className="border rounded px-3 py-2 w-full"
+            disabled={!editando}
+            value={apolice.numero}
+            onChange={(e) => setApolice({ ...apolice, numero: e.target.value })}
+          />
         </div>
 
+        {/* Tipo */}
         <div>
-          <p className="text-sm text-gray-500">Tipo</p>
-          <p className="text-lg font-semibold capitalize">{apolice.tipo}</p>
-        </div>
-
-        <div>
-          <p className="text-sm text-gray-500">Seguradora</p>
-          <p className="text-lg font-semibold">{apolice.seguradora}</p>
-        </div>
-
-        <div>
-          <p className="text-sm text-gray-500">Prêmio</p>
-          <p className="text-lg font-semibold">
-            {apolice.moeda} {apolice.premio}
-          </p>
-        </div>
-
-        <div>
-          <p className="text-sm text-gray-500">Vigência</p>
-          <p className="text-lg font-medium">
-            {apolice.inicioVigencia?.toDate?.().toLocaleDateString()} —
-            {` `}
-            {apolice.fimVigencia?.toDate?.().toLocaleDateString()}
-          </p>
-        </div>
-
-        {apolice.notas && (
-          <div>
-            <p className="text-sm text-gray-500">Notas</p>
-            <p className="text-gray-800 whitespace-pre-line">{apolice.notas}</p>
-          </div>
-        )}
-
-        {/* CLIENTE / LEAD BLOCO CORRIGIDO */}
-        {cliente && (
-          <div className="border-t pt-4">
-            <p className="text-sm text-gray-500">Cliente</p>
-
-            {/* Nome do cliente */}
-            <button
-              onClick={() => router.push(`/clientes/${cliente.id}`)}
-              className="text-blue-600 font-bold underline text-lg text-left"
-            >
-              {cliente.nome}
-            </button>
-
-            {/* Telefone */}
-            <p className="text-sm text-gray-600 mt-1">
-              {cliente.telefone || "Sem telefone"}
-            </p>
-
-            {/* WhatsApp */}
-            <button
-              onClick={abrirWhatsApp}
-              className="mt-1 text-green-600 underline font-semibold text-sm"
-            >
-              Abrir WhatsApp
-            </button>
-          </div>
-        )}
-
-        {/* Botões finais */}
-        <div className="flex gap-3 mt-6">
-          <button
-            onClick={() => router.push(`/apolices/${id}/editar`)}
-            className="px-4 py-2 bg-black text-white rounded"
+          <label className="block text-sm font-medium">Tipo</label>
+          <select
+            className="border rounded px-3 py-2 w-full"
+            disabled={!editando}
+            value={apolice.tipo}
+            onChange={(e) => setApolice({ ...apolice, tipo: e.target.value })}
           >
-            Editar
-          </button>
+            <option value="vida">Vida</option>
+            <option value="saude">Saúde</option>
+            <option value="residencial">Residencial</option>
+            <option value="comercial">Comercial</option>
+          </select>
+        </div>
+
+        {/* Seguradora (com filtro datalist) */}
+        <div>
+          <label className="block text-sm font-medium">Seguradora</label>
+          <input
+            list="listaSeguradoras"
+            className="border rounded px-3 py-2 w-full"
+            disabled={!editando}
+            value={apolice.seguradora || ""}
+            onChange={(e) => setApolice({ ...apolice, seguradora: e.target.value })}
+          />
+          <datalist id="listaSeguradoras">
+            {seguradoras.map((s) => (
+              <option key={s} value={s} />
+            ))}
+          </datalist>
+        </div>
+
+        {/* Prêmio */}
+        <div>
+          <label className="block text-sm font-medium">Prêmio</label>
+          <input
+            className="border rounded px-3 py-2 w-full"
+            disabled={!editando}
+            value={apolice.premio}
+            onChange={(e) => setApolice({ ...apolice, premio: e.target.value })}
+          />
+        </div>
+
+        {/* Vigência */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium">Início</label>
+            <input
+              type="date"
+              disabled={!editando}
+              className="border rounded px-3 py-2 w-full"
+              value={
+                apolice.inicioVigencia?.toDate
+                  ? apolice.inicioVigencia.toDate().toISOString().slice(0, 10)
+                  : ""
+              }
+              onChange={(e) =>
+                setApolice({ ...apolice, inicioVigencia: new Date(e.target.value) })
+              }
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium">Fim</label>
+            <input
+              type="date"
+              disabled={!editando}
+              className="border rounded px-3 py-2 w-full"
+              value={
+                apolice.fimVigencia?.toDate
+                  ? apolice.fimVigencia.toDate().toISOString().slice(0, 10)
+                  : ""
+              }
+              onChange={(e) =>
+                setApolice({ ...apolice, fimVigencia: new Date(e.target.value) })
+              }
+            />
+          </div>
+        </div>
+
+        {/* Notas */}
+        <div>
+          <label className="block text-sm font-medium">Notas</label>
+          <textarea
+            className="border rounded px-3 py-2 w-full"
+            rows={3}
+            disabled={!editando}
+            value={apolice.notas || ""}
+            onChange={(e) => setApolice({ ...apolice, notas: e.target.value })}
+          />
+        </div>
+
+        {/* BOTÕES */}
+        <div className="flex gap-3 mt-4">
+
+          {!editando ? (
+            <button
+              onClick={() => setEditando(true)}
+              className="px-4 py-2 bg-black text-white rounded"
+            >
+              Editar
+            </button>
+          ) : (
+            <button
+              onClick={salvar}
+              className="px-4 py-2 bg-green-600 text-white rounded"
+            >
+              Salvar
+            </button>
+          )}
+
+          {/* WhatsApp */}
+          {apolice.telefoneCliente && (
+            <button
+              onClick={() => enviarWhats(apolice.telefoneCliente)}
+              className="px-4 py-2 bg-green-600 text-white rounded"
+            >
+              WhatsApp
+            </button>
+          )}
 
           <button
             onClick={() => router.push("/apolices")}
@@ -144,7 +223,15 @@ export default function ApolicePage() {
           >
             Voltar
           </button>
+
+          <button
+            onClick={excluir}
+            className="px-4 py-2 bg-red-600 text-white rounded ml-auto"
+          >
+            Excluir
+          </button>
         </div>
+
       </div>
     </Layout>
   );
