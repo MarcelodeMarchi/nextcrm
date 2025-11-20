@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Layout from "@/components/Layout";
 import { useParams, useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, deleteDoc } from "firebase/firestore";
 
 export default function LeadPage() {
   const { id } = useParams();
@@ -12,6 +12,11 @@ export default function LeadPage() {
 
   const [lead, setLead] = useState<any>(null);
   const [editando, setEditando] = useState(false);
+
+  // LISTAS DAS OPÇÕES
+  const seguradoras = ["Pan American", "National", "Prudential", "John Hancock"];
+  const origens = ["Instagram", "Facebook", "WhatsApp", "Indicação", "Google Ads"];
+  const agentes = ["Marcelo", "Juliana", "Equipe Next", "Não definido"];
 
   useEffect(() => {
     const carregar = async () => {
@@ -35,6 +40,14 @@ export default function LeadPage() {
     setEditando(false);
   };
 
+  const excluir = async () => {
+    if (!confirm("Tem certeza que deseja excluir este lead?")) return;
+
+    await deleteDoc(doc(db, "leads", id as string));
+    alert("Lead excluído!");
+    router.push("/leads");
+  };
+
   if (!lead) {
     return (
       <Layout>
@@ -48,6 +61,7 @@ export default function LeadPage() {
       <h1 className="text-2xl font-bold mb-4">Lead</h1>
 
       <div className="bg-white border rounded shadow p-6 space-y-4 max-w-xl">
+
         {/* Nome */}
         <div>
           <label className="block text-sm font-medium">Nome</label>
@@ -91,41 +105,60 @@ export default function LeadPage() {
           />
         </div>
 
-        {/* Seguradora */}
+        {/* Seguradora (com filtro) */}
         <div>
           <label className="block text-sm font-medium">Seguradora</label>
           <input
+            list="listaSeguradoras"
             className="border rounded px-3 py-2 w-full"
             disabled={!editando}
             value={lead.seguradora || ""}
             onChange={(e) => setLead({ ...lead, seguradora: e.target.value })}
           />
+          <datalist id="listaSeguradoras">
+            {seguradoras.map((s) => (
+              <option key={s} value={s} />
+            ))}
+          </datalist>
         </div>
 
-        {/* Origem */}
+        {/* Origem (com filtro) */}
         <div>
           <label className="block text-sm font-medium">Origem</label>
           <input
+            list="listaOrigens"
             className="border rounded px-3 py-2 w-full"
             disabled={!editando}
             value={lead.origem || ""}
             onChange={(e) => setLead({ ...lead, origem: e.target.value })}
           />
+          <datalist id="listaOrigens">
+            {origens.map((o) => (
+              <option key={o} value={o} />
+            ))}
+          </datalist>
         </div>
 
-        {/* Agente */}
+        {/* Agente (com filtro) */}
         <div>
           <label className="block text-sm font-medium">Agente</label>
           <input
+            list="listaAgentes"
             className="border rounded px-3 py-2 w-full"
             disabled={!editando}
             value={lead.agente || ""}
             onChange={(e) => setLead({ ...lead, agente: e.target.value })}
           />
+          <datalist id="listaAgentes">
+            {agentes.map((a) => (
+              <option key={a} value={a} />
+            ))}
+          </datalist>
         </div>
 
-        {/* Botões */}
+        {/* BOTÕES */}
         <div className="flex gap-3 mt-4">
+
           {!editando ? (
             <button
               onClick={() => setEditando(true)}
@@ -148,7 +181,16 @@ export default function LeadPage() {
           >
             Voltar
           </button>
+
+          {/* Botão excluir */}
+          <button
+            onClick={excluir}
+            className="px-4 py-2 bg-red-600 text-white rounded ml-auto"
+          >
+            Excluir
+          </button>
         </div>
+
       </div>
     </Layout>
   );
