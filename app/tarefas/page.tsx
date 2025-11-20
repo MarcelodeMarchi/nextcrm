@@ -21,7 +21,7 @@ import { ptBR } from "date-fns/locale";
 
 import "react-big-calendar/lib/css/react-big-calendar.css";
 
-// CALENDÁRIO
+// LOCALIZAÇÃO
 const locales = { "pt-BR": ptBR };
 
 const localizer = dateFnsLocalizer({
@@ -46,6 +46,7 @@ export default function TarefasPage() {
   const [aba, setAba] = useState<"lista" | "calendario">("lista");
   const [busca, setBusca] = useState("");
 
+  // BUSCAR TAREFAS
   useEffect(() => {
     const q = query(collection(db, "tarefas"), orderBy("data", "asc"));
 
@@ -64,22 +65,18 @@ export default function TarefasPage() {
     });
   };
 
-  // =======================
-  // CRIAR TAREFA VIA DRILLDOWN
-  // =======================
-  const criarTarefaAoClicar = async (date: Date) => {
+  // Criar tarefa clicando no botão
+  const criarTarefaSimples = async () => {
     await addDoc(collection(db, "tarefas"), {
       titulo: "Nova Tarefa",
-      data: date,
+      data: new Date(),
       horario: "09:00",
       concluido: false,
       criadoEm: serverTimestamp(),
     });
   };
 
-  // =======================
   // EVENTOS DO CALENDÁRIO
-  // =======================
   const eventos = tarefas
     .filter((t) => t.data)
     .map((t) => {
@@ -107,12 +104,22 @@ export default function TarefasPage() {
       {/* HEADER */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Tarefas</h1>
-        <Link
-          href="/tarefas/novo"
-          className="px-4 py-2 bg-black text-white rounded-md text-sm"
-        >
-          Nova Tarefa
-        </Link>
+
+        <div className="flex gap-2">
+          <button
+            onClick={criarTarefaSimples}
+            className="px-4 py-2 bg-green-600 text-white rounded-md text-sm"
+          >
+            + Criar Tarefa Rápida
+          </button>
+
+          <Link
+            href="/tarefas/novo"
+            className="px-4 py-2 bg-black text-white rounded-md text-sm"
+          >
+            Nova Tarefa Completa
+          </Link>
+        </div>
       </div>
 
       {/* ABAS */}
@@ -136,7 +143,7 @@ export default function TarefasPage() {
         </button>
       </div>
 
-      {/* FILTRO */}
+      {/* FILTRO NA LISTA */}
       {aba === "lista" && (
         <input
           type="text"
@@ -156,7 +163,7 @@ export default function TarefasPage() {
                 <th className="p-3">✓</th>
                 <th className="p-3">Título</th>
                 <th className="p-3">Data</th>
-                <th className="p-3">Horário</th>
+                <th className="p-3">Hora</th>
                 <th className="p-3">Ações</th>
               </tr>
             </thead>
@@ -210,7 +217,6 @@ export default function TarefasPage() {
             views={[Views.MONTH, Views.WEEK, Views.DAY]}
             defaultView={Views.MONTH}
             style={{ height: 600 }}
-            onDrillDown={criarTarefaAoClicar}
             onSelectEvent={(e) =>
               (window.location.href = `/tarefas/${e.id}`)
             }
