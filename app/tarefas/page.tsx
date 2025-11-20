@@ -23,7 +23,7 @@ import { format, parse, startOfWeek, getDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 import "react-big-calendar/lib/css/react-big-calendar.css";
-import "@/styles/calendar.css";
+import "./calendar.css";
 
 // =======================
 // CONFIGURAÇÃO DO CALENDÁRIO

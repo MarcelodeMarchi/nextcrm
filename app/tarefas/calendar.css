@@ -1,0 +1,38 @@
+/* Ajusta layout do React Big Calendar */
+.rbc-calendar {
+  font-family: sans-serif;
+}
+
+/* Corrige sobreposição no layout WEEK e DAY */
+.rbc-time-content {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+/* Bordas mais limpas */
+.rbc-day-slot .rbc-time-slot {
+  border-top: 1px solid #ddd !important;
+}
+
+.rbc-timeslot-group {
+  min-height: 50px !important;
+}
+
+/* Estilo dos eventos */
+.rbc-event {
+  background: #000;
+  color: #fff;
+  border-radius: 6px;
+  padding: 4px;
+}
+
+/* Header */
+.rbc-header {
+  padding: 6px 0;
+  font-weight: bold;
+}
+
+/* Dia atual */
+.rbc-today {
+  background: #e8f4ff !important;
+}
