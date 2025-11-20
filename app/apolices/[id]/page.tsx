@@ -15,6 +15,16 @@ export default function ApolicePage() {
 
   const seguradoras = ["Pan American", "National", "Prudential", "John Hancock"];
 
+  const toDateString = (value: any) => {
+    try {
+      if (!value) return "-";
+      if (value?.toDate) return value.toDate().toLocaleDateString("pt-BR");
+      return new Date(value).toLocaleDateString("pt-BR");
+    } catch {
+      return "-";
+    }
+  };
+
   useEffect(() => {
     const carregar = async () => {
       const ref = doc(db, "todasApolices", id as string);
@@ -112,9 +122,7 @@ export default function ApolicePage() {
             disabled={!editando}
             className="border rounded px-3 py-2 w-full"
             value={apolice.premio}
-            onChange={(e) =>
-              setApolice({ ...apolice, premio: e.target.value })
-            }
+            onChange={(e) => setApolice({ ...apolice, premio: e.target.value })}
           />
         </div>
 
@@ -122,7 +130,7 @@ export default function ApolicePage() {
         <div>
           <label className="block text-sm font-medium">Vigência</label>
           <p className="text-sm">
-            {apolice.inicioVigencia} — {apolice.fimVigencia}
+            {toDateString(apolice.inicioVigencia)} — {toDateString(apolice.fimVigencia)}
           </p>
         </div>
 
