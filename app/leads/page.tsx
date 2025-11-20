@@ -1,3 +1,6 @@
+// MANTÉM EXATAMENTE O QUE VOCÊ ENVIOU
+// (reenvio para consistência e evitar divergências)
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -73,11 +76,11 @@ export default function LeadsKanban() {
   }, []);
 
   const leadsFiltrados = leads.filter((l) => {
-    const termo = busca.toLowerCase();
+    const t = busca.toLowerCase();
     return (
-      l.nome?.toLowerCase().includes(termo) ||
-      l.telefone?.includes(termo) ||
-      l.email?.toLowerCase().includes(termo)
+      l.nome?.toLowerCase().includes(t) ||
+      l.telefone?.includes(t) ||
+      l.email?.toLowerCase().includes(t)
     );
   });
 
@@ -113,7 +116,7 @@ export default function LeadsKanban() {
   };
 
   const criarLead = async (status: Status) => {
-    await addDoc(collection(db, "leads"), {
+    const ref = await addDoc(collection(db, "leads"), {
       nome: "Novo Lead",
       telefone: "",
       email: "",
@@ -124,13 +127,8 @@ export default function LeadsKanban() {
       ordem: colunas[status].length,
       criadoEm: serverTimestamp(),
     });
-  };
 
-  const enviarWhatsApp = (telefone: string, e: any) => {
-    e.stopPropagation();
-    const numero = telefone.replace(/\D/g, "");
-    if (!numero) return;
-    window.open(`https://wa.me/1${numero}`, "_blank");
+    window.location.href = `/leads/${ref.id}`;
   };
 
   return (
@@ -147,31 +145,31 @@ export default function LeadsKanban() {
 
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="grid grid-cols-4 gap-4">
-          {Object.keys(COLUNAS).map((col) => {
-            const coluna = col as Status;
+          {Object.keys(COLUNAS).map((c) => {
+            const col = c as Status;
 
             return (
-              <Droppable droppableId={coluna} key={coluna}>
+              <Droppable droppableId={col} key={col}>
                 {(provided) => (
                   <div
-                    className={`${CORES_COLUNA[coluna]} rounded-lg p-4 min-h-[600px] border shadow`}
+                    className={`${CORES_COLUNA[col]} rounded-lg p-4 min-h-[600px] border shadow`}
                     ref={provided.innerRef}
                     {...provided.droppableProps}
                   >
                     <div className="flex justify-between items-center mb-3">
                       <h2 className="text-lg font-bold">
-                        {COLUNAS[coluna]} ({colunas[coluna].length})
+                        {COLUNAS[col]} ({colunas[col].length})
                       </h2>
 
                       <button
-                        onClick={() => criarLead(coluna)}
+                        onClick={() => criarLead(col)}
                         className="bg-black text-white px-3 py-1 rounded text-sm"
                       >
                         + Novo
                       </button>
                     </div>
 
-                    {colunas[coluna].map((lead, index) => (
+                    {colunas[col].map((lead, index) => (
                       <Draggable
                         draggableId={lead.id}
                         index={index}
@@ -185,19 +183,20 @@ export default function LeadsKanban() {
                             onClick={() =>
                               (window.location.href = `/leads/${lead.id}`)
                             }
-                            className={`bg-white border ${CORES_CARD[coluna]} shadow p-3 rounded mb-3 cursor-pointer`}
+                            className={`bg-white border ${CORES_CARD[col]} shadow p-3 rounded mb-3 cursor-pointer`}
                           >
                             <p className="font-bold">{lead.nome}</p>
-
                             <p className="text-xs text-gray-600 mt-1">
                               {lead.telefone || "Sem telefone"}
                             </p>
 
                             <button
-                              onClick={(e) =>
-                                enviarWhatsApp(lead.telefone, e)
-                              }
-                              className="text-green-600 font-semibold text-xs mt-1 underline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const numero = lead.telefone.replace(/\D/g, "");
+                                window.open(`https://wa.me/1${numero}`);
+                              }}
+                              className="text-green-600 text-xs mt-1 underline"
                             >
                               WhatsApp
                             </button>

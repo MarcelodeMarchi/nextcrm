@@ -11,15 +11,13 @@ export default function LeadPage() {
   const router = useRouter();
 
   const [lead, setLead] = useState<any>(null);
-  const [editando, setEditando] = useState(false);
 
-  // LISTAS DAS OPÇÕES
   const seguradoras = ["Pan American", "National", "Prudential", "John Hancock"];
   const origens = ["Instagram", "Facebook", "WhatsApp", "Indicação", "Google Ads"];
   const agentes = ["Marcelo", "Juliana", "Equipe Next", "Não definido"];
 
   useEffect(() => {
-    const carregar = async () => {
+    const load = async () => {
       const ref = doc(db, "leads", id as string);
       const snap = await getDoc(ref);
 
@@ -31,17 +29,16 @@ export default function LeadPage() {
       setLead({ id, ...snap.data() });
     };
 
-    carregar();
+    load();
   }, [id, router]);
 
   const salvar = async () => {
     await updateDoc(doc(db, "leads", id as string), lead);
-    alert("Lead salvo com sucesso!");
-    setEditando(false);
+    alert("Lead salvo!");
   };
 
   const excluir = async () => {
-    if (!confirm("Tem certeza que deseja excluir este lead?")) return;
+    if (!confirm("Deseja excluir este lead?")) return;
 
     await deleteDoc(doc(db, "leads", id as string));
     alert("Lead excluído!");
@@ -67,7 +64,6 @@ export default function LeadPage() {
           <label className="block text-sm font-medium">Nome</label>
           <input
             className="border rounded px-3 py-2 w-full"
-            disabled={!editando}
             value={lead.nome}
             onChange={(e) => setLead({ ...lead, nome: e.target.value })}
           />
@@ -78,20 +74,21 @@ export default function LeadPage() {
           <label className="block text-sm font-medium">Telefone</label>
           <input
             className="border rounded px-3 py-2 w-full"
-            disabled={!editando}
             value={lead.telefone}
             onChange={(e) => setLead({ ...lead, telefone: e.target.value })}
           />
 
-          <button
-            onClick={() => {
-              const numero = lead.telefone.replace(/\D/g, "");
-              window.open(`https://wa.me/1${numero}`, "_blank");
-            }}
-            className="mt-1 text-green-600 underline text-sm"
-          >
-            Abrir WhatsApp
-          </button>
+          {lead.telefone && (
+            <button
+              onClick={() => {
+                const numero = lead.telefone.replace(/\D/g, "");
+                window.open(`https://wa.me/1${numero}`, "_blank");
+              }}
+              className="mt-1 text-green-600 underline text-sm"
+            >
+              Abrir WhatsApp
+            </button>
+          )}
         </div>
 
         {/* Email */}
@@ -99,81 +96,67 @@ export default function LeadPage() {
           <label className="block text-sm font-medium">Email</label>
           <input
             className="border rounded px-3 py-2 w-full"
-            disabled={!editando}
             value={lead.email}
             onChange={(e) => setLead({ ...lead, email: e.target.value })}
           />
         </div>
 
-        {/* Seguradora (com filtro) */}
+        {/* Seguradora */}
         <div>
           <label className="block text-sm font-medium">Seguradora</label>
           <input
-            list="listaSeguradoras"
+            list="listaSeg"
             className="border rounded px-3 py-2 w-full"
-            disabled={!editando}
             value={lead.seguradora || ""}
             onChange={(e) => setLead({ ...lead, seguradora: e.target.value })}
           />
-          <datalist id="listaSeguradoras">
+          <datalist id="listaSeg">
             {seguradoras.map((s) => (
               <option key={s} value={s} />
             ))}
           </datalist>
         </div>
 
-        {/* Origem (com filtro) */}
+        {/* Origem */}
         <div>
           <label className="block text-sm font-medium">Origem</label>
           <input
-            list="listaOrigens"
+            list="listaOri"
             className="border rounded px-3 py-2 w-full"
-            disabled={!editando}
             value={lead.origem || ""}
             onChange={(e) => setLead({ ...lead, origem: e.target.value })}
           />
-          <datalist id="listaOrigens">
+          <datalist id="listaOri">
             {origens.map((o) => (
               <option key={o} value={o} />
             ))}
           </datalist>
         </div>
 
-        {/* Agente (com filtro) */}
+        {/* Agente */}
         <div>
           <label className="block text-sm font-medium">Agente</label>
           <input
-            list="listaAgentes"
+            list="listaAgen"
             className="border rounded px-3 py-2 w-full"
-            disabled={!editando}
             value={lead.agente || ""}
             onChange={(e) => setLead({ ...lead, agente: e.target.value })}
           />
-          <datalist id="listaAgentes">
+          <datalist id="listaAgen">
             {agentes.map((a) => (
               <option key={a} value={a} />
             ))}
           </datalist>
         </div>
 
-        {/* BOTÕES */}
+        {/* Botões */}
         <div className="flex gap-3 mt-4">
-
-          {!editando ? (
-            <button
-              onClick={() => setEditando(true)}
-              className="px-4 py-2 bg-black text-white rounded"
-            >
-              Editar
-            </button>
-          ) : (
-            <button
-              onClick={salvar}
-              className="px-4 py-2 bg-green-600 text-white rounded"
-            >
-              Salvar
-            </button>
-          )}
+          <button
+            onClick={salvar}
+            className="px-4 py-2 bg-green-600 text-white rounded"
+          >
+            Salvar
+          </button>
 
           <button
             onClick={() => router.push("/leads")}
@@ -182,7 +165,6 @@ export default function LeadPage() {
             Voltar
           </button>
 
-          {/* Botão excluir */}
           <button
             onClick={excluir}
             className="px-4 py-2 bg-red-600 text-white rounded ml-auto"
@@ -190,7 +172,6 @@ export default function LeadPage() {
             Excluir
           </button>
         </div>
-
       </div>
     </Layout>
   );
