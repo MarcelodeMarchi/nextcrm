@@ -113,7 +113,7 @@ export default function ClientePage() {
           />
         </div>
 
-        {/* BOTÕES */}
+        {/* BOTÕES PRINCIPAIS */}
         <div className="flex gap-3 mt-4">
           {!editando ? (
             <button
@@ -143,6 +143,22 @@ export default function ClientePage() {
             className="ml-auto px-4 py-2 bg-red-600 text-white rounded"
           >
             Excluir
+          </button>
+        </div>
+
+        {/* ----------------------------- */}
+        {/*      BOTÃO ADICIONAR APÓLICE */}
+        {/* ----------------------------- */}
+        <div className="pt-6 border-t">
+          <button
+            onClick={() =>
+              router.push(
+                `/apolices/nova?clienteId=${cliente.id}&clienteNome=${cliente.nome}&clienteTelefone=${cliente.telefone}`
+              )
+            }
+            className="w-full px-4 py-3 bg-blue-600 text-white font-semibold rounded"
+          >
+            + Adicionar Apólice
           </button>
         </div>
       </div>
