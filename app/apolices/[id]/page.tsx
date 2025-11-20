@@ -118,23 +118,33 @@ export default function ApolicePage() {
           </p>
         </div>
 
-        {/* Cliente/Lead */}
-        {cliente && (
-          <div className="border-t pt-4">
-            <p className="text-sm text-gray-500">Cliente</p>
-            <p className="text-lg font-semibold">{cliente.nome}</p>
+{/* Cliente/Lead */}
+{cliente && (
+  <div className="border-t pt-4">
+    <p className="text-sm text-gray-500">Cliente</p>
 
-            <p className="text-sm text-gray-600">{cliente.telefone}</p>
+    {/* Nome do Cliente (clicável para abrir página do cliente) */}
+    <button
+      onClick={() => router.push(`/clientes/${cliente.id}`)}
+      className="text-blue-600 font-bold underline text-lg text-left"
+    >
+      {cliente.nome}
+    </button>
 
-            {/* Botão WhatsApp */}
-            <button
-              onClick={abrirWhatsApp}
-              className="mt-1 text-green-600 underline font-semibold text-sm"
-            >
-              Abrir WhatsApp
-            </button>
-          </div>
-        )}
+    {/* Telefone */}
+    <p className="text-sm text-gray-600 mt-1">
+      {cliente.telefone || "Sem telefone"}
+    </p>
+
+    {/* Botão WhatsApp */}
+    <button
+      onClick={abrirWhatsApp}
+      className="mt-1 text-green-600 underline font-semibold text-sm"
+    >
+      Abrir WhatsApp
+    </button>
+  </div>
+)}
 
         {/* BOTÕES */}
         <div className="flex gap-3 mt-6">
