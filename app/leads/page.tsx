@@ -9,9 +9,17 @@ import {
   onSnapshot,
   query,
   orderBy,
+  doc,
+  updateDoc,
+  addDoc,
+  serverTimestamp,
 } from "firebase/firestore";
 
-import WhatsAppButton from "@/components/WhatsAppButton";
+import {
+  DragDropContext,
+  Droppable,
+  Draggable,
+} from "@hello-pangea/dnd";
 
 type Lead = {
   id: string;
@@ -21,93 +29,195 @@ type Lead = {
   seguradora?: string;
   origem?: string;
   agente?: string;
+  status: Status;
+  ordem: number;
 };
 
-export default function LeadsPage() {
+type Status = "novo" | "contato" | "proposta" | "fechado";
+
+const COLUNAS: Record<Status, string> = {
+  novo: "Novo",
+  contato: "Em Contato",
+  proposta: "Proposta Enviada",
+  fechado: "Fechado",
+};
+
+const CORES_COLUNA: Record<Status, string> = {
+  novo: "bg-blue-50",
+  contato: "bg-yellow-50",
+  proposta: "bg-purple-50",
+  fechado: "bg-green-50",
+};
+
+const CORES_CARD: Record<Status, string> = {
+  novo: "border-blue-300",
+  contato: "border-yellow-300",
+  proposta: "border-purple-300",
+  fechado: "border-green-300",
+};
+
+export default function LeadsKanban() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [busca, setBusca] = useState("");
 
   useEffect(() => {
-    const q = query(collection(db, "leads"), orderBy("nome", "asc"));
+    const q = query(collection(db, "leads"), orderBy("ordem", "asc"));
 
     const unsub = onSnapshot(q, (snap) => {
       setLeads(
-        snap.docs.map((d) => ({
-          id: d.id,
-          ...d.data(),
-        })) as Lead[]
+        snap.docs.map((d) => ({ ...d.data(), id: d.id })) as Lead[]
       );
     });
 
-    return () => unsub();
+    return unsub;
   }, []);
 
-  const filtrados = leads.filter((l) => {
-    const t = busca.toLowerCase();
+  const leadsFiltrados = leads.filter((l) => {
+    const termo = busca.toLowerCase();
     return (
-      l.nome?.toLowerCase().includes(t) ||
-      l.telefone?.includes(t) ||
-      l.email?.toLowerCase().includes(t)
+      l.nome?.toLowerCase().includes(termo) ||
+      l.telefone?.includes(termo) ||
+      l.email?.toLowerCase().includes(termo)
     );
   });
 
+  const colunas: Record<Status, Lead[]> = {
+    novo: leadsFiltrados.filter((l) => l.status === "novo"),
+    contato: leadsFiltrados.filter((l) => l.status === "contato"),
+    proposta: leadsFiltrados.filter((l) => l.status === "proposta"),
+    fechado: leadsFiltrados.filter((l) => l.status === "fechado"),
+  };
+
+  const onDragEnd = async (result: any) => {
+    const { destination, source, draggableId } = result;
+    if (!destination) return;
+
+    const origem = source.droppableId as Status;
+    const destino = destination.droppableId as Status;
+
+    // Mudou de coluna
+    if (origem !== destino) {
+      await updateDoc(doc(db, "leads", draggableId), {
+        status: destino,
+        ordem: colunas[destino].length,
+      });
+      return;
+    }
+
+    // Reordenar dentro da mesma coluna
+    const novaLista = [...colunas[origem]];
+    const [removido] = novaLista.splice(source.index, 1);
+    novaLista.splice(destination.index, 0, removido);
+
+    novaLista.forEach(async (lead, index) => {
+      await updateDoc(doc(db, "leads", lead.id), { ordem: index });
+    });
+  };
+
+  const criarLead = async (status: Status) => {
+    await addDoc(collection(db, "leads"), {
+      nome: "Novo Lead",
+      telefone: "",
+      email: "",
+      seguradora: "",
+      origem: "",
+      agente: "",
+      status,
+      ordem: colunas[status].length,
+      criadoEm: serverTimestamp(),
+    });
+  };
+
+  const enviarWhatsApp = (telefone: string) => {
+    if (!telefone) return;
+    const numero = telefone.replace(/\D/g, "");
+    window.open(`https://wa.me/1${numero}`, "_blank");
+  };
+
   return (
     <Layout>
-      <h1 className="text-2xl font-bold mb-6">Leads</h1>
+      <h1 className="text-2xl font-bold mb-4">Leads — Pipeline</h1>
 
       <input
         type="text"
+        placeholder="Buscar lead..."
         value={busca}
         onChange={(e) => setBusca(e.target.value)}
-        placeholder="Buscar lead..."
-        className="mb-6 w-full border rounded px-4 py-2 shadow"
+        className="mb-6 w-full border p-3 rounded shadow"
       />
 
-      <div className="bg-white shadow rounded-lg border overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-100 text-left">
-            <tr>
-              <th className="p-3">Nome</th>
-              <th className="p-3">Telefone</th>
-              <th className="p-3">Email</th>
-              <th className="p-3">WhatsApp</th>
-              <th className="p-3">Ações</th>
-            </tr>
-          </thead>
+      <DragDropContext onDragEnd={onDragEnd}>
+        <div className="grid grid-cols-4 gap-4">
+          {Object.keys(COLUNAS).map((col) => {
+            const coluna = col as Status;
 
-          <tbody>
-            {filtrados.map((lead) => (
-              <tr key={lead.id} className="border-t">
-                <td className="p-3 font-semibold">{lead.nome}</td>
-                <td className="p-3">{lead.telefone || "—"}</td>
-                <td className="p-3">{lead.email || "—"}</td>
-
-                {/* BOTÃO WHATSAPP */}
-                <td className="p-3">
-                  <WhatsAppButton phone={lead.telefone} />
-                </td>
-
-                <td className="p-3">
-                  <Link
-                    href={`/leads/${lead.id}`}
-                    className="text-blue-600 hover:underline"
+            return (
+              <Droppable droppableId={coluna} key={coluna}>
+                {(provided) => (
+                  <div
+                    className={`${CORES_COLUNA[coluna]} rounded-lg p-4 min-h-[600px] border shadow`}
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
                   >
-                    Abrir
-                  </Link>
-                </td>
-              </tr>
-            ))}
+                    <div className="flex justify-between items-center mb-3">
+                      <h2 className="text-lg font-bold">
+                        {COLUNAS[coluna]} ({colunas[coluna].length})
+                      </h2>
 
-            {filtrados.length === 0 && (
-              <tr>
-                <td colSpan={5} className="p-4 text-center text-gray-500">
-                  Nenhum lead encontrado.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+                      <button
+                        onClick={() => criarLead(coluna)}
+                        className="bg-black text-white px-3 py-1 rounded text-sm"
+                      >
+                        + Novo
+                      </button>
+                    </div>
+
+                    {colunas[coluna].map((lead, index) => (
+                      <Draggable
+                        draggableId={lead.id}
+                        index={index}
+                        key={lead.id}
+                      >
+                        {(prov) => (
+                          <div
+                            ref={prov.innerRef}
+                            {...prov.draggableProps}
+                            {...prov.dragHandleProps}
+                            className={`bg-white border ${CORES_CARD[coluna]} shadow p-3 rounded mb-3 cursor-pointer`}
+                          >
+                            <Link href={`/leads/${lead.id}`}>
+                              <p className="font-bold">{lead.nome}</p>
+                            </Link>
+
+                            <p className="text-xs text-gray-600 mt-1">
+                              {lead.telefone || "Sem telefone"}
+                            </p>
+
+                            <button
+                              onClick={() => enviarWhatsApp(lead.telefone)}
+                              className="text-green-600 font-semibold text-xs mt-1 underline"
+                            >
+                              WhatsApp
+                            </button>
+
+                            <div className="text-xs text-gray-700 mt-2">
+                              <p><strong>Seguradora:</strong> {lead.seguradora || "—"}</p>
+                              <p><strong>Origem:</strong> {lead.origem || "—"}</p>
+                              <p><strong>Agente:</strong> {lead.agente || "—"}</p>
+                            </div>
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            );
+          })}
+        </div>
+      </DragDropContext>
     </Layout>
   );
 }
