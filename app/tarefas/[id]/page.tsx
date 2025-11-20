@@ -13,10 +13,9 @@ export default function EditarTarefaPage() {
   const [tarefa, setTarefa] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // 🔥 Função segura para converter qualquer data
+  // Converte Firestore → input date
   const toInputDate = (value: any) => {
     if (!value) return "";
-
     try {
       if (value?.toDate) {
         return value.toDate().toISOString().slice(0, 10);
@@ -37,7 +36,12 @@ export default function EditarTarefaPage() {
         return;
       }
 
-      setTarefa({ id, ...snap.data() });
+      const dados = snap.data();
+
+      // Garantir que horário exista
+      if (!dados.horario) dados.horario = "";
+
+      setTarefa({ id, ...dados });
       setLoading(false);
     };
 
@@ -45,11 +49,19 @@ export default function EditarTarefaPage() {
   }, [id, router]);
 
   const salvar = async () => {
+    // Combinar data + horario EM UMA DATA REAL
+    const dataFinal =
+      tarefa.data && tarefa.horario
+        ? new Date(`${toInputDate(tarefa.data)}T${tarefa.horario}:00`)
+        : tarefa.data
+        ? new Date(toInputDate(tarefa.data))
+        : null;
+
     await updateDoc(doc(db, "tarefas", id as string), {
       titulo: tarefa.titulo,
       concluido: tarefa.concluido,
-      data: tarefa.data ? new Date(tarefa.data) : null,
-      horario: tarefa.horario || null,
+      data: dataFinal,
+      horario: tarefa.horario || "",
     });
 
     alert("Tarefa atualizada!");

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Protected from "@/components/Protected";
 import "./styles/calendar.css";
+import "react-big-calendar/lib/css/react-big-calendar.css";
 
 export const metadata: Metadata = {
   title: "Next CRM - Consultoria & Seguros",
