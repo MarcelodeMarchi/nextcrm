@@ -1,35 +1,44 @@
 "use client";
 
-import Layout from "@/components/Layout";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useState } from "react";
+import Layout from "@/components/Layout";
 import { db } from "@/lib/firebase";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { useRouter } from "next/navigation";
+
+// Converte data YYYY-MM-DD para objeto Date com timezone correto
+const fixDate = (dateStr: string, timeStr?: string) => {
+  if (!dateStr) return null;
+
+  const hora = timeStr || "12:00";
+  const dt = new Date(`${dateStr}T${hora}:00`);
+  return new Date(dt.toISOString().replace("Z", ""));
+};
 
 export default function NovaTarefaPage() {
   const router = useRouter();
+  const params = useSearchParams();
+
+  // Se veio do clique no calendário, já preenche a data
+  const dataInicial = params.get("data") || "";
 
   const [titulo, setTitulo] = useState("");
-  const [data, setData] = useState("");
-  const [hora, setHora] = useState("09:00");
+  const [data, setData] = useState(dataInicial);
+  const [horario, setHorario] = useState("");
+  const [concluido] = useState(false);
 
   const salvar = async () => {
-    let dataFinal = null;
-
-    if (data && hora) {
-      const [h, m] = hora.split(":").map(Number);
-      const dt = new Date(data);
-      dt.setHours(h, m, 0, 0);
-      dataFinal = dt;
-    }
+    const dataFinal = fixDate(data, horario);
 
     await addDoc(collection(db, "tarefas"), {
       titulo,
-      concluido: false,
       data: dataFinal,
+      horario: horario || null,
+      concluido,
       criadoEm: serverTimestamp(),
     });
 
+    alert("Tarefa criada!");
     router.push("/tarefas");
   };
 
@@ -38,8 +47,10 @@ export default function NovaTarefaPage() {
       <h1 className="text-2xl font-bold mb-6">Nova Tarefa</h1>
 
       <div className="space-y-4 max-w-lg">
+
+        {/* TÍTULO */}
         <div>
-          <label className="block text-sm">Título</label>
+          <label className="block text-sm mb-1">Título</label>
           <input
             className="border rounded-md px-3 py-2 w-full"
             value={titulo}
@@ -47,8 +58,9 @@ export default function NovaTarefaPage() {
           />
         </div>
 
+        {/* DATA */}
         <div>
-          <label className="block text-sm">Data</label>
+          <label className="block text-sm mb-1">Data</label>
           <input
             type="date"
             className="border rounded-md px-3 py-2 w-full"
@@ -57,13 +69,14 @@ export default function NovaTarefaPage() {
           />
         </div>
 
+        {/* HORÁRIO */}
         <div>
-          <label className="block text-sm">Horário</label>
+          <label className="block text-sm mb-1">Horário</label>
           <input
             type="time"
             className="border rounded-md px-3 py-2 w-full"
-            value={hora}
-            onChange={(e) => setHora(e.target.value)}
+            value={horario}
+            onChange={(e) => setHorario(e.target.value)}
           />
         </div>
 
@@ -72,6 +85,13 @@ export default function NovaTarefaPage() {
           className="px-4 py-2 bg-black text-white rounded-md"
         >
           Salvar
+        </button>
+
+        <button
+          onClick={() => router.push("/tarefas")}
+          className="px-4 py-2 bg-gray-300 rounded-md ml-3"
+        >
+          Cancelar
         </button>
       </div>
     </Layout>

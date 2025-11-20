@@ -1,27 +1,34 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Layout from "@/components/Layout";
 import Link from "next/link";
 import { db } from "@/lib/firebase";
 import {
   collection,
   onSnapshot,
-  orderBy,
   query,
+  orderBy,
   updateDoc,
   doc,
 } from "firebase/firestore";
 
-import { Calendar, Views, dateFnsLocalizer } from "react-big-calendar";
+import {
+  Calendar,
+  Views,
+  dateFnsLocalizer,
+} from "react-big-calendar";
+
 import { format, parse, startOfWeek, getDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 import "react-big-calendar/lib/css/react-big-calendar.css";
+import "@/styles/calendar.css";
 
 // =======================
 // CONFIGURAÇÃO DO CALENDÁRIO
 // =======================
+
 const locales = { "pt-BR": ptBR };
 
 const localizer = dateFnsLocalizer({
@@ -33,80 +40,116 @@ const localizer = dateFnsLocalizer({
 });
 
 // =======================
-// TIPO TAREFA
+// HELPER — Corrigir timezone America/New_York
+// =======================
+const fixTimezone = (dt: any) => {
+  try {
+    if (!dt) return null;
+    if (dt?.toDate) dt = dt.toDate();
+
+    const iso = dt.toISOString().replace("Z", "");
+    return new Date(iso);
+  } catch {
+    return dt;
+  }
+};
+
+// =======================
+// TIPAGENS
 // =======================
 type Tarefa = {
   id: string;
   titulo: string;
-  horario?: string;
   concluido: boolean;
-  data: any; // Timestamp Firestore
+  data: any;
+  horario?: string;
+  relacionadoA?: {
+    tipo: "lead" | "cliente";
+    id: string;
+    nome: string;
+  };
 };
 
 export default function TarefasPage() {
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [aba, setAba] = useState<"lista" | "calendario">("lista");
-  const [filtro, setFiltro] = useState("");
+  const [busca, setBusca] = useState("");
 
   // =======================
-  // CARREGA TAREFAS
+  // CARREGAR TAREFAS
   // =======================
   useEffect(() => {
     const q = query(collection(db, "tarefas"), orderBy("data", "asc"));
 
     const unsub = onSnapshot(q, (snap) => {
-      const data = snap.docs.map((d) => ({
+      const lista = snap.docs.map((d) => ({
         id: d.id,
         ...d.data(),
       })) as Tarefa[];
 
-      setTarefas(data);
+      setTarefas(lista);
     });
 
     return () => unsub();
   }, []);
 
   // =======================
-  // Marcar como concluída
+  // FILTRO
   // =======================
-  const toggleConcluido = async (tarefa: Tarefa) => {
-    await updateDoc(doc(db, "tarefas", tarefa.id), {
-      concluido: !tarefa.concluido,
-    });
-  };
+  const tarefasFiltradas = tarefas.filter((t) => {
+    const termo = busca.toLowerCase();
+    return (
+      t.titulo?.toLowerCase().includes(termo) ||
+      t.relacionadoA?.nome?.toLowerCase().includes(termo)
+    );
+  });
 
   // =======================
   // EVENTOS PARA O CALENDÁRIO
   // =======================
-  const eventos = tarefas
-    .filter((t) => t.data)
-    .map((t) => {
-      const dataBase = t.data?.toDate ? t.data.toDate() : new Date(t.data);
+  const eventos = useMemo(() => {
+    return tarefas
+      .filter((t) => t.data)
+      .map((t) => {
+        const baseDate = fixTimezone(t.data);
+        if (!baseDate) return null;
 
-      let inicio = dataBase;
-      let fim = new Date(dataBase);
+        let start = new Date(baseDate);
+        let end = new Date(baseDate);
 
-      if (t.horario) {
-        const [h, m] = t.horario.split(":");
-        inicio = new Date(dataBase.setHours(Number(h), Number(m), 0));
-        fim = new Date(inicio.getTime() + 60 * 60 * 1000); // +1h
-      }
+        if (t.horario) {
+          const [h, m] = t.horario.split(":");
+          start.setHours(Number(h), Number(m), 0);
+          end = new Date(start.getTime() + 60 * 60 * 1000); // +1h
+        }
 
-      return {
-        id: t.id,
-        title: t.titulo,
-        start: inicio,
-        end: fim,
-        allDay: !t.horario,
-      };
+        return {
+          id: t.id,
+          title: t.titulo,
+          start,
+          end,
+          allDay: !t.horario,
+        };
+      })
+      .filter(Boolean) as any[];
+  }, [tarefas]);
+
+  // =======================
+  // MARCAR TAREFA COMO CONCLUÍDA
+  // =======================
+  const toggleConcluido = async (t: Tarefa) => {
+    await updateDoc(doc(db, "tarefas", t.id), {
+      concluido: !t.concluido,
     });
+  };
 
   // =======================
-  // FILTRO LISTA
+  // CLICK NO DIA → criar nova
   // =======================
-  const tarefasFiltradas = tarefas.filter((t) =>
-    t.titulo.toLowerCase().includes(filtro.toLowerCase())
-  );
+  const criarTarefaNoDia = (slot: any) => {
+    const dia = slot.start.toISOString().slice(0, 10);
+    window.location.href = `/tarefas/novo?data=${dia}`;
+  };
 
   return (
     <Layout>
@@ -121,6 +164,15 @@ export default function TarefasPage() {
           Nova Tarefa
         </Link>
       </div>
+
+      {/* BUSCA */}
+      <input
+        type="text"
+        placeholder="Buscar tarefa..."
+        className="border p-2 rounded mb-4 w-full"
+        value={busca}
+        onChange={(e) => setBusca(e.target.value)}
+      />
 
       {/* ABAS */}
       <div className="flex gap-4 mb-6 border-b pb-2">
@@ -148,84 +200,65 @@ export default function TarefasPage() {
       </div>
 
       {/* ==========================
-          ABA — LISTA
+          LISTA
       =========================== */}
       {aba === "lista" && (
-        <>
-          {/* FILTRO */}
-          <input
-            type="text"
-            placeholder="Buscar tarefa..."
-            value={filtro}
-            onChange={(e) => setFiltro(e.target.value)}
-            className="mb-4 border p-2 rounded w-full shadow-sm"
-          />
+        <div className="bg-white rounded-lg shadow border">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-100 text-left">
+                <th className="p-3">Concluir</th>
+                <th className="p-3">Título</th>
+                <th className="p-3">Data</th>
+                <th className="p-3">Horário</th>
+                <th className="p-3">Ações</th>
+              </tr>
+            </thead>
 
-          <div className="bg-white rounded-lg shadow border">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-100 text-left">
-                  <th className="p-3">✔</th>
-                  <th className="p-3">Título</th>
-                  <th className="p-3">Data</th>
-                  <th className="p-3">Horário</th>
-                  <th className="p-3">Ações</th>
+            <tbody>
+              {tarefasFiltradas.map((t) => (
+                <tr key={t.id} className="border-t">
+                  <td className="p-3">
+                    <input
+                      type="checkbox"
+                      checked={t.concluido}
+                      onChange={() => toggleConcluido(t)}
+                    />
+                  </td>
+
+                  <td className="p-3">{t.titulo}</td>
+
+                  <td className="p-3">
+                    {fixTimezone(t.data)?.toLocaleDateString("pt-BR")}
+                  </td>
+
+                  <td className="p-3">{t.horario || "-"}</td>
+
+                  <td className="p-3">
+                    <Link
+                      href={`/tarefas/${t.id}`}
+                      className="text-blue-600 hover:underline"
+                    >
+                      Abrir
+                    </Link>
+                  </td>
                 </tr>
-              </thead>
+              ))}
 
-              <tbody>
-                {tarefasFiltradas.map((t) => (
-                  <tr key={t.id} className="border-t">
-                    <td className="p-3">
-                      <input
-                        type="checkbox"
-                        checked={t.concluido}
-                        onChange={() => toggleConcluido(t)}
-                      />
-                    </td>
-
-                    <td className="p-3">
-                      {t.concluido ? (
-                        <span className="line-through text-gray-400">{t.titulo}</span>
-                      ) : (
-                        t.titulo
-                      )}
-                    </td>
-
-                    <td className="p-3">
-                      {t.data?.toDate?.().toLocaleDateString("pt-BR") || "-"}
-                    </td>
-
-                    <td className="p-3">
-                      {t.horario || "-"}
-                    </td>
-
-                    <td className="p-3">
-                      <Link
-                        href={`/tarefas/${t.id}`}
-                        className="text-blue-600 hover:underline"
-                      >
-                        Abrir
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-
-                {tarefasFiltradas.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="p-4 text-center text-gray-500">
-                      Nenhuma tarefa encontrada.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </>
+              {tarefasFiltradas.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="text-center p-4 text-gray-500">
+                    Nenhuma tarefa encontrada.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {/* ==========================
-          ABA — CALENDÁRIO
+          CALENDÁRIO
       =========================== */}
       {aba === "calendario" && (
         <div className="bg-white rounded-lg shadow border p-4">
@@ -236,9 +269,12 @@ export default function TarefasPage() {
             endAccessor="end"
             views={[Views.MONTH, Views.WEEK, Views.DAY]}
             defaultView={Views.MONTH}
-            style={{ height: 650 }}
-            popup
-            onSelectEvent={(e) => (window.location.href = `/tarefas/${e.id}`)}
+            style={{ height: 600 }}
+            selectable
+            onSelectSlot={criarTarefaNoDia}
+            onSelectEvent={(e) =>
+              (window.location.href = `/tarefas/${e.id}`)
+            }
           />
         </div>
       )}
