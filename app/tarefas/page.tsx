@@ -15,16 +15,13 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 
-// 📌 CALENDÁRIO
 import { Calendar, Views, dateFnsLocalizer } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 import "react-big-calendar/lib/css/react-big-calendar.css";
 
-// =======================
-// CONFIGURAÇÃO DO CALENDÁRIO
-// =======================
+// CALENDÁRIO
 const locales = { "pt-BR": ptBR };
 
 const localizer = dateFnsLocalizer({
@@ -35,20 +32,13 @@ const localizer = dateFnsLocalizer({
   locales,
 });
 
-// =======================
 // TIPOS
-// =======================
 type Tarefa = {
   id: string;
   titulo: string;
   data?: any;
   horario?: string;
   concluido: boolean;
-  relacionadoA?: {
-    tipo: "lead" | "cliente";
-    id: string;
-    nome: string;
-  };
 };
 
 export default function TarefasPage() {
@@ -56,9 +46,6 @@ export default function TarefasPage() {
   const [aba, setAba] = useState<"lista" | "calendario">("lista");
   const [busca, setBusca] = useState("");
 
-  // =======================
-  // CARREGAR LISTA
-  // =======================
   useEffect(() => {
     const q = query(collection(db, "tarefas"), orderBy("data", "asc"));
 
@@ -78,14 +65,12 @@ export default function TarefasPage() {
   };
 
   // =======================
-  // CRIAR TAREFA AO CLICAR NO CALENDÁRIO
+  // CRIAR TAREFA VIA DRILLDOWN
   // =======================
-  const criarTarefaNoDia = async (slot: any) => {
-    const data = new Date(slot.start);
-
+  const criarTarefaAoClicar = async (date: Date) => {
     await addDoc(collection(db, "tarefas"), {
-      titulo: "Nova tarefa",
-      data,
+      titulo: "Nova Tarefa",
+      data: date,
       horario: "09:00",
       concluido: false,
       criadoEm: serverTimestamp(),
@@ -98,28 +83,28 @@ export default function TarefasPage() {
   const eventos = tarefas
     .filter((t) => t.data)
     .map((t) => {
-      const dataBase = t.data?.toDate ? t.data.toDate() : new Date(t.data);
+      const base = t.data?.toDate ? t.data.toDate() : new Date(t.data);
 
-      let inicio = new Date(dataBase);
-      let fim = new Date(dataBase);
+      let start = new Date(base);
+      let end = new Date(base);
 
       if (t.horario) {
         const [h, m] = t.horario.split(":");
-        inicio.setHours(Number(h), Number(m));
-        fim = new Date(inicio.getTime() + 60 * 60 * 1000);
+        start.setHours(Number(h), Number(m));
+        end = new Date(start.getTime() + 60 * 60 * 1000);
       }
 
       return {
         id: t.id,
         title: t.titulo,
-        start: inicio,
-        end: fim,
+        start,
+        end,
       };
     });
 
   return (
     <Layout>
-      {/* CABEÇALHO */}
+      {/* HEADER */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Tarefas</h1>
         <Link
@@ -162,15 +147,13 @@ export default function TarefasPage() {
         />
       )}
 
-      {/* ======================
-          LISTA
-      ======================= */}
+      {/* LISTA */}
       {aba === "lista" && (
         <div className="bg-white rounded-lg shadow border">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-100 text-left">
-                <th className="p-3">Concluir</th>
+                <th className="p-3">✓</th>
                 <th className="p-3">Título</th>
                 <th className="p-3">Data</th>
                 <th className="p-3">Horário</th>
@@ -216,9 +199,7 @@ export default function TarefasPage() {
         </div>
       )}
 
-      {/* ======================
-          CALENDÁRIO
-      ======================= */}
+      {/* CALENDÁRIO */}
       {aba === "calendario" && (
         <div className="bg-white rounded-lg shadow border p-4">
           <Calendar
@@ -229,7 +210,7 @@ export default function TarefasPage() {
             views={[Views.MONTH, Views.WEEK, Views.DAY]}
             defaultView={Views.MONTH}
             style={{ height: 600 }}
-            onSelectSlot={criarTarefaNoDia}
+            onDrillDown={criarTarefaAoClicar}
             onSelectEvent={(e) =>
               (window.location.href = `/tarefas/${e.id}`)
             }
