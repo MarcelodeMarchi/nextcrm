@@ -13,9 +13,10 @@ export default function EditarTarefaPage() {
   const [tarefa, setTarefa] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // Converte Firestore → input date
+  // 🔥 Função segura para converter qualquer data
   const toInputDate = (value: any) => {
     if (!value) return "";
+
     try {
       if (value?.toDate) {
         return value.toDate().toISOString().slice(0, 10);
@@ -36,12 +37,7 @@ export default function EditarTarefaPage() {
         return;
       }
 
-      const dados = snap.data();
-
-      // Garantir que horário exista
-      if (!dados.horario) dados.horario = "";
-
-      setTarefa({ id, ...dados });
+      setTarefa({ id, ...snap.data() });
       setLoading(false);
     };
 
@@ -49,19 +45,15 @@ export default function EditarTarefaPage() {
   }, [id, router]);
 
   const salvar = async () => {
-    // Combinar data + horario EM UMA DATA REAL
-    const dataFinal =
-      tarefa.data && tarefa.horario
-        ? new Date(`${toInputDate(tarefa.data)}T${tarefa.horario}:00`)
-        : tarefa.data
-        ? new Date(toInputDate(tarefa.data))
-        : null;
+    const dataFinal = tarefa.data
+      ? new Date(`${toInputDate(tarefa.data)}T${tarefa.horario || "12:00"}:00`)
+      : null;
 
     await updateDoc(doc(db, "tarefas", id as string), {
       titulo: tarefa.titulo,
       concluido: tarefa.concluido,
       data: dataFinal,
-      horario: tarefa.horario || "",
+      horario: tarefa.horario || null,
     });
 
     alert("Tarefa atualizada!");
@@ -74,6 +66,19 @@ export default function EditarTarefaPage() {
     await deleteDoc(doc(db, "tarefas", id as string));
     alert("Tarefa excluída!");
     router.push("/tarefas");
+  };
+
+  // 🔥 Ação WhatsApp
+  const abrirWhatsApp = () => {
+    if (!tarefa.relacionadoA || !tarefa.relacionadoA.telefone) {
+      alert("Este registro não possui telefone associado.");
+      return;
+    }
+
+    const numero = tarefa.relacionadoA.telefone.replace(/\D/g, "");
+    if (!numero) return alert("Número inválido.");
+
+    window.open(`https://wa.me/1${numero}`, "_blank");
   };
 
   if (loading) {
@@ -143,11 +148,24 @@ export default function EditarTarefaPage() {
           <label className="text-sm">Concluída</label>
         </div>
 
+        {/* RELACIONADO A */}
+        {tarefa.relacionadoA && (
+          <div className="p-3 border rounded bg-gray-50">
+            <p className="text-sm">
+              <strong>Relacionado:</strong> {tarefa.relacionadoA.nome}
+            </p>
+            <p className="text-sm text-gray-600">
+              Telefone: {tarefa.relacionadoA.telefone || "Não informado"}
+            </p>
+          </div>
+        )}
+
         {/* BOTÕES */}
-        <div className="flex gap-3">
+        <div className="flex gap-3 mt-4">
+
           <button
             onClick={salvar}
-            className="px-4 py-2 bg-black text-white rounded-md"
+            className="px-4 py-2 bg-green-600 text-white rounded-md"
           >
             Salvar
           </button>
@@ -165,6 +183,16 @@ export default function EditarTarefaPage() {
           >
             Cancelar
           </button>
+
+          {/* 🔥 WHATSAPP */}
+          {tarefa.relacionadoA?.telefone && (
+            <button
+              onClick={abrirWhatsApp}
+              className="px-4 py-2 bg-green-600 text-white rounded-md ml-auto"
+            >
+              WhatsApp
+            </button>
+          )}
         </div>
       </div>
     </Layout>
