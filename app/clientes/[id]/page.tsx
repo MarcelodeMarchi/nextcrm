@@ -79,25 +79,29 @@ export default function ClientePage() {
           />
         </div>
 
-        {/* Telefone */}
+        {/* TELEFONE + BOTÃO WHATSAPP AO LADO */}
         <div>
           <label className="block text-sm font-medium">Telefone</label>
-          <input
-            className="border rounded px-3 py-2 w-full"
-            disabled={!editando}
-            value={cliente.telefone}
-            onChange={(e) =>
-              setCliente({ ...cliente, telefone: e.target.value })
-            }
-          />
 
-          {/* BOTÃO WHATSAPP */}
-          <button
-            onClick={abrirWhatsApp}
-            className="mt-2 text-green-600 font-semibold underline text-sm"
-          >
-            Abrir WhatsApp
-          </button>
+          <div className="flex gap-2 items-center">
+            <input
+              className="border rounded px-3 py-2 w-full"
+              disabled={!editando}
+              value={cliente.telefone}
+              onChange={(e) =>
+                setCliente({ ...cliente, telefone: e.target.value })
+              }
+            />
+
+            {/* Botão WhatsApp C2 */}
+            <button
+              onClick={abrirWhatsApp}
+              className="px-3 py-2 bg-green-600 text-white rounded-md font-semibold"
+              title="Abrir WhatsApp"
+            >
+              WhatsApp
+            </button>
+          </div>
         </div>
 
         {/* Email */}
