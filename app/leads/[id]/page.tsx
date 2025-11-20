@@ -32,6 +32,18 @@ export default function LeadPage() {
     load();
   }, [id, router]);
 
+  const mensagemWhatsApp = () => {
+    if (!lead.telefone) return;
+
+    const numero = lead.telefone.replace(/\D/g, "");
+
+    const msg = encodeURIComponent(
+      `Olá ${lead.nome}, tudo bem?\n\nAqui é da Next Consultoria.\nVi o seu interesse e estou entrando em contato para te ajudar da melhor forma.`
+    );
+
+    window.open(`https://wa.me/1${numero}?text=${msg}`, "_blank");
+  };
+
   const salvar = async () => {
     await updateDoc(doc(db, "leads", id as string), lead);
     alert("Lead salvo!");
@@ -80,13 +92,10 @@ export default function LeadPage() {
 
           {lead.telefone && (
             <button
-              onClick={() => {
-                const numero = lead.telefone.replace(/\D/g, "");
-                window.open(`https://wa.me/1${numero}`, "_blank");
-              }}
-              className="mt-1 text-green-600 underline text-sm"
+              onClick={mensagemWhatsApp}
+              className="mt-1 text-green-600 underline text-sm font-semibold"
             >
-              Abrir WhatsApp
+              Enviar WhatsApp automático
             </button>
           )}
         </div>
