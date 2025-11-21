@@ -4,7 +4,14 @@ import { useEffect, useState } from "react";
 import Layout from "@/components/Layout";
 import { useParams, useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
-import { doc, getDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  deleteDoc,
+  collection,
+  addDoc,
+} from "firebase/firestore";
 
 export default function ClientePage() {
   const { id } = useParams();
@@ -12,6 +19,23 @@ export default function ClientePage() {
 
   const [cliente, setCliente] = useState<any>(null);
   const [editando, setEditando] = useState(false);
+
+  // Dados do formulário de nova apólice
+  const [novaApolice, setNovaApolice] = useState({
+    numero: "",
+    tipo: "",
+    seguradora: "",
+    premio: "",
+    inicioVigencia: "",
+    fimVigencia: "",
+  });
+
+  const seguradoras = [
+    "Pan American",
+    "National",
+    "Prudential",
+    "John Hancock",
+  ];
 
   useEffect(() => {
     const carregar = async () => {
@@ -52,6 +76,39 @@ export default function ClientePage() {
     window.open(`https://wa.me/1${numero}`, "_blank");
   };
 
+  const criarApolice = async () => {
+    if (
+      !novaApolice.numero ||
+      !novaApolice.inicioVigencia ||
+      !novaApolice.fimVigencia
+    ) {
+      return alert("Preencha pelo menos número e vigência!");
+    }
+
+    const apoliceObj = {
+      ...novaApolice,
+      clienteId: cliente.id,
+      clienteNome: cliente.nome,
+      clienteTelefone: cliente.telefone,
+      inicioVigencia: new Date(novaApolice.inicioVigencia),
+      fimVigencia: new Date(novaApolice.fimVigencia),
+    };
+
+    // 1 — Salva na coleção geral
+    const refNova = await addDoc(collection(db, "todasApolices"), apoliceObj);
+
+    // 2 — Salva dentro do cliente
+    await addDoc(
+      collection(db, `clientes/${cliente.id}/apolices`),
+      apoliceObj
+    );
+
+    alert("Apólice criada com sucesso!");
+
+    // Redireciona para a apólice criada
+    router.push(`/apolices/${refNova.id}`);
+  };
+
   if (!cliente) {
     return (
       <Layout>
@@ -65,7 +122,6 @@ export default function ClientePage() {
       <h1 className="text-2xl font-bold mb-4">Cliente</h1>
 
       <div className="bg-white border rounded shadow p-6 space-y-4 max-w-xl">
-
         {/* Nome */}
         <div>
           <label className="block text-sm font-medium">Nome</label>
@@ -91,12 +147,17 @@ export default function ClientePage() {
             }
           />
 
-          {/* BOTÃO WHATSAPP */}
+          {/* Botão WhatsApp */}
           <button
             onClick={abrirWhatsApp}
-            className="mt-2 text-green-600 font-semibold underline text-sm"
+            className="mt-2 inline-flex items-center gap-2 bg-green-600 text-white px-3 py-2 rounded shadow"
           >
-            Abrir WhatsApp
+            <img
+              src="/icons/whatsapp-white.svg"
+              alt="WhatsApp"
+              className="w-5 h-5"
+            />
+            WhatsApp
           </button>
         </div>
 
@@ -113,7 +174,7 @@ export default function ClientePage() {
           />
         </div>
 
-        {/* BOTÕES PRINCIPAIS */}
+        {/* Botões */}
         <div className="flex gap-3 mt-4">
           {!editando ? (
             <button
@@ -145,22 +206,101 @@ export default function ClientePage() {
             Excluir
           </button>
         </div>
+      </div>
 
-        {/* ----------------------------- */}
-        {/*      BOTÃO ADICIONAR APÓLICE */}
-        {/* ----------------------------- */}
-        <div className="pt-6 border-t">
-          <button
-            onClick={() =>
-              router.push(
-                `/apolices/nova?clienteId=${cliente.id}&clienteNome=${cliente.nome}&clienteTelefone=${cliente.telefone}`
-              )
+      {/* NOVA APÓLICE */}
+      <div className="bg-white border rounded shadow p-6 space-y-4 max-w-xl mt-10">
+        <h2 className="text-xl font-bold">+ Nova Apólice</h2>
+
+        <div>
+          <label className="block text-sm">Número</label>
+          <input
+            className="border rounded px-3 py-2 w-full"
+            value={novaApolice.numero}
+            onChange={(e) =>
+              setNovaApolice({ ...novaApolice, numero: e.target.value })
             }
-            className="w-full px-4 py-3 bg-blue-600 text-white font-semibold rounded"
-          >
-            + Adicionar Apólice
-          </button>
+          />
         </div>
+
+        <div>
+          <label className="block text-sm">Tipo</label>
+          <input
+            className="border rounded px-3 py-2 w-full"
+            value={novaApolice.tipo}
+            onChange={(e) =>
+              setNovaApolice({ ...novaApolice, tipo: e.target.value })
+            }
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm">Seguradora</label>
+          <input
+            list="listaSeguradoras"
+            className="border rounded px-3 py-2 w-full"
+            value={novaApolice.seguradora}
+            onChange={(e) =>
+              setNovaApolice({
+                ...novaApolice,
+                seguradora: e.target.value,
+              })
+            }
+          />
+          <datalist id="listaSeguradoras">
+            {seguradoras.map((s) => (
+              <option key={s} value={s} />
+            ))}
+          </datalist>
+        </div>
+
+        <div>
+          <label className="block text-sm">Prêmio</label>
+          <input
+            className="border rounded px-3 py-2 w-full"
+            value={novaApolice.premio}
+            onChange={(e) =>
+              setNovaApolice({ ...novaApolice, premio: e.target.value })
+            }
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm">Início Vigência</label>
+          <input
+            type="date"
+            className="border rounded px-3 py-2 w-full"
+            value={novaApolice.inicioVigencia}
+            onChange={(e) =>
+              setNovaApolice({
+                ...novaApolice,
+                inicioVigencia: e.target.value,
+              })
+            }
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm">Fim Vigência</label>
+          <input
+            type="date"
+            className="border rounded px-3 py-2 w-full"
+            value={novaApolice.fimVigencia}
+            onChange={(e) =>
+              setNovaApolice({
+                ...novaApolice,
+                fimVigencia: e.target.value,
+              })
+            }
+          />
+        </div>
+
+        <button
+          onClick={criarApolice}
+          className="w-full px-4 py-2 bg-black text-white rounded mt-3"
+        >
+          Criar Apólice
+        </button>
       </div>
     </Layout>
   );
