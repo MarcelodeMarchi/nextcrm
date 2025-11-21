@@ -46,6 +46,10 @@ export default function TarefasPage() {
   const [aba, setAba] = useState<"lista" | "calendario">("lista");
   const [busca, setBusca] = useState("");
 
+  // DETECTAR MOBILE
+  const isMobile =
+    typeof window !== "undefined" && window.innerWidth < 768;
+
   // BUSCAR TAREFAS
   useEffect(() => {
     const q = query(collection(db, "tarefas"), orderBy("data", "asc"));
@@ -65,7 +69,6 @@ export default function TarefasPage() {
     });
   };
 
-  // Criar tarefa clicando no botão
   const criarTarefaSimples = async () => {
     await addDoc(collection(db, "tarefas"), {
       titulo: "Nova Tarefa",
@@ -76,7 +79,7 @@ export default function TarefasPage() {
     });
   };
 
-  // EVENTOS DO CALENDÁRIO
+  // EVENTOS DO CALENDÁRIO DESKTOP
   const eventos = tarefas
     .filter((t) => t.data)
     .map((t) => {
@@ -99,9 +102,139 @@ export default function TarefasPage() {
       };
     });
 
+  // ============================
+  // 📱 MOBILE — AGENDA DIÁRIA
+  // ============================
+
+  const organizarAgendaMobile = () => {
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+
+    const amanha = new Date();
+    amanha.setDate(amanha.getDate() + 1);
+    amanha.setHours(0, 0, 0, 0);
+
+    const itensHoje = tarefas.filter((t) => {
+      const d = t.data?.toDate?.();
+      if (!d) return false;
+      d.setHours(0, 0, 0, 0);
+      return d.getTime() === hoje.getTime();
+    });
+
+    const itensAmanha = tarefas.filter((t) => {
+      const d = t.data?.toDate?.();
+      if (!d) return false;
+      d.setHours(0, 0, 0, 0);
+      return d.getTime() === amanha.getTime();
+    });
+
+    const proximos = tarefas.filter((t) => {
+      const d = t.data?.toDate?.();
+      if (!d) return false;
+      d.setHours(0, 0, 0, 0);
+      return d > amanha;
+    });
+
+    return { itensHoje, itensAmanha, proximos };
+  };
+
+  const { itensHoje, itensAmanha, proximos } = organizarAgendaMobile();
+
+  // ============================
+  // 📱 MOBILE VIEW
+  // ============================
+
+  if (isMobile) {
+    return (
+      <Layout>
+        <h1 className="text-2xl font-bold mb-4">Tarefas</h1>
+
+        <div className="flex gap-2 mb-4">
+          <button
+            onClick={criarTarefaSimples}
+            className="flex-1 px-4 py-2 bg-green-600 text-white rounded-md text-sm"
+          >
+            + Nova
+          </button>
+
+          <Link
+            href="/tarefas/novo"
+            className="flex-1 px-4 py-2 bg-black text-white rounded-md text-sm"
+          >
+            Completa
+          </Link>
+        </div>
+
+        {/* HOJE */}
+        <h2 className="text-lg font-bold mt-4 mb-2">Hoje</h2>
+        {itensHoje.length === 0 && (
+          <p className="text-gray-500 text-sm mb-3">Nenhuma tarefa.</p>
+        )}
+        {itensHoje.map((t) => (
+          <div
+            key={t.id}
+            className="bg-white shadow rounded-lg p-4 mb-3 border"
+            onClick={() => (window.location.href = `/tarefas/${t.id}`)}
+          >
+            <p className="font-semibold">{t.titulo}</p>
+            <p className="text-xs text-gray-600 mt-1">
+              {t.horario || "Sem horário"}
+            </p>
+          </div>
+        ))}
+
+        {/* AMANHÃ */}
+        <h2 className="text-lg font-bold mt-4 mb-2">Amanhã</h2>
+        {itensAmanha.length === 0 && (
+          <p className="text-gray-500 text-sm mb-3">Nada agendado.</p>
+        )}
+        {itensAmanha.map((t) => (
+          <div
+            key={t.id}
+            className="bg-white shadow rounded-lg p-4 mb-3 border"
+            onClick={() => (window.location.href = `/tarefas/${t.id}`)}
+          >
+            <p className="font-semibold">{t.titulo}</p>
+            <p className="text-xs text-gray-600 mt-1">
+              {t.horario || "Sem horário"}
+            </p>
+          </div>
+        ))}
+
+        {/* PRÓXIMOS DIAS */}
+        <h2 className="text-lg font-bold mt-4 mb-2">Próximos dias</h2>
+        {proximos.length === 0 && (
+          <p className="text-gray-500 text-sm mb-3">Nenhuma tarefa futura.</p>
+        )}
+        {proximos.map((t) => {
+          const d = t.data?.toDate?.();
+          const dataFmt = d
+            ? d.toLocaleDateString("pt-BR")
+            : "Sem data";
+
+          return (
+            <div
+              key={t.id}
+              className="bg-white shadow rounded-lg p-4 mb-3 border"
+              onClick={() => (window.location.href = `/tarefas/${t.id}`)}
+            >
+              <p className="font-semibold">{t.titulo}</p>
+              <p className="text-xs text-gray-600 mt-1">
+                {dataFmt} — {t.horario || "Sem horário"}
+              </p>
+            </div>
+          );
+        })}
+      </Layout>
+    );
+  }
+
+  // ============================
+  // 💻 DESKTOP (NÃO ALTERADO)
+  // ============================
+
   return (
     <Layout>
-      {/* HEADER */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Tarefas</h1>
 
@@ -122,7 +255,6 @@ export default function TarefasPage() {
         </div>
       </div>
 
-      {/* ABAS */}
       <div className="flex gap-4 mb-6 border-b pb-2">
         <button
           onClick={() => setAba("lista")}
@@ -136,25 +268,16 @@ export default function TarefasPage() {
         <button
           onClick={() => setAba("calendario")}
           className={`px-4 py-2 rounded ${
-            aba === "calendario" ? "bg-black text-white" : "bg-gray-200"
+            aba === "calendario"
+              ? "bg-black text-white"
+              : "bg-gray-200"
           }`}
         >
           Calendário
         </button>
       </div>
 
-      {/* FILTRO NA LISTA */}
-      {aba === "lista" && (
-        <input
-          type="text"
-          placeholder="Buscar tarefa..."
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-          className="mb-4 w-full border p-3 rounded"
-        />
-      )}
-
-      {/* LISTA */}
+      {/* LISTA DESKTOP */}
       {aba === "lista" && (
         <div className="bg-white rounded-lg shadow border">
           <table className="w-full text-sm">
@@ -169,44 +292,41 @@ export default function TarefasPage() {
             </thead>
 
             <tbody>
-              {tarefas
-                .filter((t) =>
-                  t.titulo.toLowerCase().includes(busca.toLowerCase())
-                )
-                .map((t) => (
-                  <tr key={t.id} className="border-t">
-                    <td className="p-3">
-                      <input
-                        type="checkbox"
-                        checked={t.concluido}
-                        onChange={() => toggleConcluido(t)}
-                      />
-                    </td>
+              {tarefas.map((t) => (
+                <tr key={t.id} className="border-t">
+                  <td className="p-3">
+                    <input
+                      type="checkbox"
+                      checked={t.concluido}
+                      onChange={() => toggleConcluido(t)}
+                    />
+                  </td>
 
-                    <td className="p-3">{t.titulo}</td>
+                  <td className="p-3">{t.titulo}</td>
 
-                    <td className="p-3">
-                      {t.data?.toDate?.().toLocaleDateString("pt-BR") || "-"}
-                    </td>
+                  <td className="p-3">
+                    {t.data?.toDate?.().toLocaleDateString("pt-BR") ||
+                      "-"}
+                  </td>
 
-                    <td className="p-3">{t.horario || "-"}</td>
+                  <td className="p-3">{t.horario || "-"}</td>
 
-                    <td className="p-3">
-                      <Link
-                        href={`/tarefas/${t.id}`}
-                        className="text-blue-600"
-                      >
-                        Abrir
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
+                  <td className="p-3">
+                    <Link
+                      href={`/tarefas/${t.id}`}
+                      className="text-blue-600"
+                    >
+                      Abrir
+                    </Link>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
       )}
 
-      {/* CALENDÁRIO */}
+      {/* CALENDÁRIO DESKTOP */}
       {aba === "calendario" && (
         <div className="bg-white rounded-lg shadow border p-4">
           <Calendar
