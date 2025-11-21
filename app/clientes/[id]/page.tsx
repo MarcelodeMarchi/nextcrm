@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Layout from "@/components/Layout";
 import { useParams, useRouter } from "next/navigation";
-import { db } from "@/lib/firebase";
 import {
   doc,
   getDoc,
@@ -13,6 +12,7 @@ import {
   addDoc,
   serverTimestamp,
 } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 export default function ClientePage() {
   const { id } = useParams();
@@ -22,7 +22,6 @@ export default function ClientePage() {
   const [editando, setEditando] = useState(false);
   const [criandoApolice, setCriandoApolice] = useState(false);
 
-  // CAMPOS DA NOVA APÓLICE
   const [nova, setNova] = useState({
     numero: "",
     tipo: "",
@@ -34,7 +33,6 @@ export default function ClientePage() {
 
   const seguradoras = ["Pan American", "National", "Prudential", "John Hancock"];
 
-  // CARREGAR CLIENTE
   useEffect(() => {
     const carregar = async () => {
       const ref = doc(db, "clientes", id as string);
@@ -51,14 +49,12 @@ export default function ClientePage() {
     carregar();
   }, [id, router]);
 
-  // SALVAR CLIENTE
   const salvar = async () => {
     await updateDoc(doc(db, "clientes", id as string), cliente);
     alert("Cliente salvo!");
     setEditando(false);
   };
 
-  // EXCLUIR CLIENTE
   const excluir = async () => {
     if (!confirm("Confirmar exclusão do cliente?")) return;
 
@@ -67,15 +63,12 @@ export default function ClientePage() {
     router.push("/clientes");
   };
 
-  // BOTÃO WHATSAPP
   const abrirWhatsApp = () => {
     const numero = cliente.telefone.replace(/\D/g, "");
     if (!numero) return alert("Cliente sem telefone válido!");
-
     window.open(`https://wa.me/1${numero}`, "_blank");
   };
 
-  // CRIAR APÓLICE
   const criarApolice = async () => {
     if (
       !nova.numero ||
@@ -115,15 +108,18 @@ export default function ClientePage() {
 
   return (
     <Layout>
-      <h1 className="text-2xl font-bold mb-4">Cliente</h1>
+      {/* TÍTULO CENTRALIZADO PARA CELULAR */}
+      <h1 className="text-2xl font-bold mb-6 text-center md:text-left">
+        Cliente
+      </h1>
 
-      <div className="bg-white border rounded shadow p-6 space-y-4 max-w-xl">
+      <div className="bg-white border rounded shadow p-6 space-y-6 max-w-xl mx-auto">
 
         {/* Nome */}
         <div>
-          <label className="block text-sm font-medium">Nome</label>
+          <label className="block text-sm text-gray-700">Nome</label>
           <input
-            className="border rounded px-3 py-2 w-full"
+            className="border rounded px-3 py-2 w-full mt-1"
             disabled={!editando}
             value={cliente.nome}
             onChange={(e) => setCliente({ ...cliente, nome: e.target.value })}
@@ -132,9 +128,9 @@ export default function ClientePage() {
 
         {/* Telefone */}
         <div>
-          <label className="block text-sm font-medium">Telefone</label>
+          <label className="block text-sm text-gray-700">Telefone</label>
           <input
-            className="border rounded px-3 py-2 w-full"
+            className="border rounded px-3 py-2 w-full mt-1"
             disabled={!editando}
             value={cliente.telefone}
             onChange={(e) =>
@@ -142,10 +138,9 @@ export default function ClientePage() {
             }
           />
 
-          {/* BOTÃO WHATSAPP (quadrado verde / ícone branco) */}
           <button
             onClick={abrirWhatsApp}
-            className="mt-2 flex items-center gap-2 bg-green-500 text-white px-3 py-2 rounded shadow"
+            className="mt-3 flex items-center gap-2 bg-green-500 text-white px-4 py-2 rounded-lg shadow w-full md:w-auto justify-center"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -154,7 +149,7 @@ export default function ClientePage() {
               width="20"
               height="20"
             >
-              <path d="M20.52 3.48A11.86 11.86 0 0 0 12 .02 11.94 11.94 0 0 0 .05 12.02 11.86 11.86 0 0 0 3.5 20.5L2 24l3.62-1.46a12 12 0 0 0 6.4 1.77h.01c6.62 0 12-5.38 12-12a11.9 11.9 0 0 0-3.51-8.83zM12 22a10 10 0 0 1-5.11-1.4l-.37-.22-2.15.87.82-2.23-.24-.36A10 10 0 1 1 12 22z" />
+              <path d="M20.52 3.48A11.86 11.86 0 0 0 12 .02 11.94 11.94 0 0 0 .05 12.02 11.86 11.86 0 0 0 3.5 20.5L2 24l3.62-1.46a12 12 0 0 0 6.4 1.77h.01c6.62 0 12-5.38 12-12a11.9 11.9 0 0 0-3.51-8.83z"/>
             </svg>
             WhatsApp
           </button>
@@ -162,28 +157,30 @@ export default function ClientePage() {
 
         {/* Email */}
         <div>
-          <label className="block text-sm font-medium">Email</label>
+          <label className="block text-sm text-gray-700">Email</label>
           <input
-            className="border rounded px-3 py-2 w-full"
+            className="border rounded px-3 py-2 w-full mt-1"
             disabled={!editando}
             value={cliente.email || ""}
-            onChange={(e) => setCliente({ ...cliente, email: e.target.value })}
+            onChange={(e) =>
+              setCliente({ ...cliente, email: e.target.value })
+            }
           />
         </div>
 
-        {/* BOTÕES */}
-        <div className="flex gap-3 mt-4">
+        {/* Botões principais */}
+        <div className="flex flex-col md:flex-row gap-3 mt-4">
           {!editando ? (
             <button
               onClick={() => setEditando(true)}
-              className="px-4 py-2 bg-black text-white rounded"
+              className="w-full md:w-auto px-4 py-2 bg-black text-white rounded-lg"
             >
               Editar
             </button>
           ) : (
             <button
               onClick={salvar}
-              className="px-4 py-2 bg-green-600 text-white rounded"
+              className="w-full md:w-auto px-4 py-2 bg-green-600 text-white rounded-lg"
             >
               Salvar
             </button>
@@ -191,31 +188,31 @@ export default function ClientePage() {
 
           <button
             onClick={() => router.push("/clientes")}
-            className="px-4 py-2 bg-gray-300 rounded"
+            className="w-full md:w-auto px-4 py-2 bg-gray-300 rounded-lg"
           >
             Voltar
           </button>
 
           <button
             onClick={excluir}
-            className="ml-auto px-4 py-2 bg-red-600 text-white rounded"
+            className="w-full md:w-auto px-4 py-2 bg-red-600 text-white rounded-lg"
           >
             Excluir
           </button>
         </div>
 
-        {/* NOVA APÓLICE */}
+        {/* Criar Apólice */}
         <div className="border-t pt-6">
           <button
             onClick={() => setCriandoApolice(!criandoApolice)}
-            className="px-4 py-2 bg-purple-600 text-white rounded"
+            className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg"
           >
             + Criar Apólice
           </button>
 
           {criandoApolice && (
-            <div className="mt-4 space-y-3">
-              
+            <div className="mt-4 space-y-4">
+
               <input
                 className="border px-3 py-2 rounded w-full"
                 placeholder="Número"
@@ -252,35 +249,40 @@ export default function ClientePage() {
                 onChange={(e) => setNova({ ...nova, premio: e.target.value })}
               />
 
-              <label className="text-sm">Início Vigência</label>
-              <input
-                type="date"
-                className="border px-3 py-2 rounded w-full"
-                value={nova.inicioVigencia}
-                onChange={(e) =>
-                  setNova({ ...nova, inicioVigencia: e.target.value })
-                }
-              />
+              <div>
+                <label className="text-sm">Início Vigência</label>
+                <input
+                  type="date"
+                  className="border px-3 py-2 rounded w-full mt-1"
+                  value={nova.inicioVigencia}
+                  onChange={(e) =>
+                    setNova({ ...nova, inicioVigencia: e.target.value })
+                  }
+                />
+              </div>
 
-              <label className="text-sm">Fim Vigência</label>
-              <input
-                type="date"
-                className="border px-3 py-2 rounded w-full"
-                value={nova.fimVigencia}
-                onChange={(e) =>
-                  setNova({ ...nova, fimVigencia: e.target.value })
-                }
-              />
+              <div>
+                <label className="text-sm">Fim Vigência</label>
+                <input
+                  type="date"
+                  className="border px-3 py-2 rounded w-full mt-1"
+                  value={nova.fimVigencia}
+                  onChange={(e) =>
+                    setNova({ ...nova, fimVigencia: e.target.value })
+                  }
+                />
+              </div>
 
               <button
                 onClick={criarApolice}
-                className="w-full px-4 py-2 bg-green-600 text-white rounded"
+                className="w-full px-4 py-2 bg-green-600 text-white rounded-lg"
               >
                 Criar Apólice
               </button>
             </div>
           )}
         </div>
+
       </div>
     </Layout>
   );
