@@ -46,6 +46,9 @@ export default function ClientesPage() {
     );
   });
 
+  const isMobile =
+    typeof window !== "undefined" && window.innerWidth < 768;
+
   return (
     <Layout>
       <div className="flex items-center justify-between mb-6">
@@ -62,53 +65,80 @@ export default function ClientesPage() {
       {/* FILTRO */}
       <input
         type="text"
-        placeholder="Buscar cliente por nome, telefone, e-mail ou seguradora..."
+        placeholder="Buscar cliente..."
         value={busca}
         onChange={(e) => setBusca(e.target.value)}
         className="mb-6 w-full border p-3 rounded shadow"
       />
 
-      <div className="bg-white rounded-lg shadow border">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-gray-100 text-left">
-              <th className="p-3">Nome</th>
-              <th className="p-3">Telefone</th>
-              <th className="p-3">E-mail</th>
-              <th className="p-3">Seguradora</th>
-              <th className="p-3">Ações</th>
-            </tr>
-          </thead>
+      {/* ==================== VERSÃO MOBILE ==================== */}
+      {isMobile ? (
+        <div className="space-y-4">
+          {filtrados.map((c) => (
+            <div
+              key={c.id}
+              onClick={() => (window.location.href = `/clientes/${c.id}`)}
+              className="bg-white border rounded-xl shadow p-4 cursor-pointer"
+            >
+              <p className="font-bold text-lg">{c.nome}</p>
 
-          <tbody>
-            {filtrados.map((c) => (
-              <tr key={c.id} className="border-t hover:bg-gray-50">
-                <td className="p-3 font-semibold">{c.nome}</td>
-                <td className="p-3">{c.telefone || "-"}</td>
-                <td className="p-3">{c.email || "-"}</td>
-                <td className="p-3">{c.seguradora || "-"}</td>
+              <p className="text-sm text-gray-600">{c.telefone || "-"}</p>
+              <p className="text-sm text-gray-600">{c.email || "-"}</p>
 
-                <td className="p-3">
-                  <Link
-                    href={`/clientes/${c.id}`}
-                    className="text-blue-600 hover:underline"
-                  >
-                    Abrir
-                  </Link>
-                </td>
+              <p className="text-sm text-gray-700 mt-1">
+                Seguradora: <strong>{c.seguradora || "—"}</strong>
+              </p>
+            </div>
+          ))}
+
+          {filtrados.length === 0 && (
+            <p className="text-center text-gray-500">Nenhum cliente encontrado.</p>
+          )}
+        </div>
+      ) : (
+        /* ==================== VERSÃO DESKTOP ==================== */
+        <div className="bg-white rounded-lg shadow border">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-100 text-left">
+                <th className="p-3">Nome</th>
+                <th className="p-3">Telefone</th>
+                <th className="p-3">E-mail</th>
+                <th className="p-3">Seguradora</th>
+                <th className="p-3">Ações</th>
               </tr>
-            ))}
+            </thead>
 
-            {filtrados.length === 0 && (
-              <tr>
-                <td colSpan={5} className="p-4 text-center text-gray-500">
-                  Nenhum cliente encontrado.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            <tbody>
+              {filtrados.map((c) => (
+                <tr key={c.id} className="border-t hover:bg-gray-50">
+                  <td className="p-3 font-semibold">{c.nome}</td>
+                  <td className="p-3">{c.telefone || "-"}</td>
+                  <td className="p-3">{c.email || "-"}</td>
+                  <td className="p-3">{c.seguradora || "-"}</td>
+
+                  <td className="p-3">
+                    <Link
+                      href={`/clientes/${c.id}`}
+                      className="text-blue-600 hover:underline"
+                    >
+                      Abrir
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+
+              {filtrados.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="p-4 text-center text-gray-500">
+                    Nenhum cliente encontrado.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
     </Layout>
   );
 }
