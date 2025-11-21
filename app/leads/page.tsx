@@ -59,8 +59,9 @@ export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [busca, setBusca] = useState("");
 
-  // 🔥 MOBILE — coluna aberta no modo fullscreen
-  const [colunaMobileAberta, setColunaMobileAberta] = useState<Status | null>(null);
+  // 📱 MOBILE — coluna aberta fullscreen
+  const [colunaMobileAberta, setColunaMobileAberta] =
+    useState<Status | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, "leads"), orderBy("ordem", "asc"));
@@ -97,6 +98,7 @@ export default function LeadsPage() {
     const origem = source.droppableId as Status;
     const destino = destination.droppableId as Status;
 
+    // Mudança de coluna
     if (origem !== destino) {
       await updateDoc(doc(db, "leads", draggableId), {
         status: destino,
@@ -105,6 +107,7 @@ export default function LeadsPage() {
       return;
     }
 
+    // Apenas mudando a ordem dentro da mesma coluna
     const novaLista = [...colunas[origem]];
     const [removido] = novaLista.splice(source.index, 1);
     novaLista.splice(destination.index, 0, removido);
@@ -130,11 +133,13 @@ export default function LeadsPage() {
     window.location.href = `/leads/${ref.id}`;
   };
 
-  // ======================================================================
-  // 📱 MOBILE VIEW — 4 botões → abre coluna fullscreen
-  // ======================================================================
-  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+  // Detecta mobile
+  const isMobile =
+    typeof window !== "undefined" && window.innerWidth < 768;
 
+  // ======================================================================
+  // 📱 MOBILE — TELA INICIAL (4 botões + botão flutuante)
+  // ======================================================================
   if (isMobile && !colunaMobileAberta) {
     return (
       <Layout>
@@ -172,12 +177,20 @@ export default function LeadsPage() {
             );
           })}
         </div>
+
+        {/* BOTÃO FLUTUANTE */}
+        <button
+          onClick={() => criarLead("novo")}
+          className="fixed bottom-6 right-6 bg-black text-white rounded-full px-5 py-4 shadow-xl text-lg font-bold"
+        >
+          + Lead
+        </button>
       </Layout>
     );
   }
 
   // ======================================================================
-  // 📱 MOBILE — COLUNA ABERTA (fullscreen)
+  // 📱 MOBILE — COLUNA FULLSCREEN
   // ======================================================================
   if (isMobile && colunaMobileAberta) {
     const col = colunaMobileAberta;
@@ -199,7 +212,9 @@ export default function LeadsPage() {
           {colunas[col].map((lead) => (
             <div
               key={lead.id}
-              onClick={() => (window.location.href = `/leads/${lead.id}`)}
+              onClick={() =>
+                (window.location.href = `/leads/${lead.id}`)
+              }
               className="bg-white border rounded-lg p-4 shadow"
             >
               <p className="font-bold">{lead.nome}</p>
@@ -207,16 +222,26 @@ export default function LeadsPage() {
             </div>
           ))}
         </div>
+
+        {/* Botão flutuante aqui também */}
+        <button
+          onClick={() => criarLead(col)}
+          className="fixed bottom-6 right-6 bg-black text-white rounded-full px-5 py-4 shadow-xl text-lg font-bold"
+        >
+          + Lead
+        </button>
       </Layout>
     );
   }
 
   // ======================================================================
-  // 💻 DESKTOP — padrão (NÃO ALTERADO)
+  // 💻 DESKTOP — layout original (NÃO ALTERAR)
   // ======================================================================
   return (
     <Layout>
-      <h1 className="text-2xl font-bold mb-4">Leads — Pipeline</h1>
+      <h1 className="text-2xl font-bold mb-4">
+        Leads — Pipeline
+      </h1>
 
       <input
         type="text"
@@ -252,13 +277,19 @@ export default function LeadsPage() {
                     </div>
 
                     {colunas[col].map((lead, index) => (
-                      <Draggable key={lead.id} draggableId={lead.id} index={index}>
+                      <Draggable
+                        key={lead.id}
+                        draggableId={lead.id}
+                        index={index}
+                      >
                         {(prov) => (
                           <div
                             ref={prov.innerRef}
                             {...prov.draggableProps}
                             {...prov.dragHandleProps}
-                            onClick={() => (window.location.href = `/leads/${lead.id}`)}
+                            onClick={() =>
+                              (window.location.href = `/leads/${lead.id}`)
+                            }
                             className={`bg-white border ${CORES_CARD[col]} shadow p-3 rounded mb-3 cursor-pointer`}
                           >
                             <p className="font-bold">{lead.nome}</p>
