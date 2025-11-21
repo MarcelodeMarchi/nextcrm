@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Layout from "@/components/Layout";
+import Link from "next/link";
 import { db } from "@/lib/firebase";
 import {
   collection,
@@ -102,11 +103,11 @@ export default function LeadsKanban() {
       return;
     }
 
-    const nova = [...colunas[origem]];
-    const [rem] = nova.splice(source.index, 1);
-    nova.splice(destination.index, 0, rem);
+    const novaLista = [...colunas[origem]];
+    const [removido] = novaLista.splice(source.index, 1);
+    novaLista.splice(destination.index, 0, removido);
 
-    nova.forEach(async (lead, index) => {
+    novaLista.forEach(async (lead, index) => {
       await updateDoc(doc(db, "leads", lead.id), { ordem: index });
     });
   };
@@ -131,7 +132,6 @@ export default function LeadsKanban() {
     <Layout>
       <h1 className="text-2xl font-bold mb-4">Leads — Pipeline</h1>
 
-      {/* BUSCA */}
       <input
         type="text"
         placeholder="Buscar lead..."
@@ -141,98 +141,83 @@ export default function LeadsKanban() {
       />
 
       <DragDropContext onDragEnd={onDragEnd}>
-        {/* WRAPPER MOBILE – scroll lateral */}
-        <div className="w-full overflow-x-auto pb-4">
-          <div className="grid grid-cols-4 gap-4 min-w-[1300px] md:min-w-0">
-            {Object.keys(COLUNAS).map((c) => {
-              const col = c as Status;
+        {/* 
+          MOBILE = 1 COLUNA  
+          DESKTOP = 4 COLUNAS  
+        */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {Object.keys(COLUNAS).map((c) => {
+            const col = c as Status;
 
-              return (
-                <Droppable droppableId={col} key={col}>
-                  {(provided) => (
-                    <div
-                      className={`
-                        ${CORES_COLUNA[col]} rounded-lg p-4 min-h-[600px] 
-                        border shadow
-                      `}
-                      ref={provided.innerRef}
-                      {...provided.droppableProps}
-                    >
-                      <div className="flex justify-between items-center mb-3">
-                        <h2 className="text-lg font-bold">
-                          {COLUNAS[col]} ({colunas[col].length})
-                        </h2>
+            return (
+              <Droppable droppableId={col} key={col}>
+                {(provided) => (
+                  <div
+                    className={`${CORES_COLUNA[col]} rounded-lg p-4 min-h-[450px] border shadow`}
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                  >
+                    <div className="flex justify-between items-center mb-3">
+                      <h2 className="text-lg font-bold">
+                        {COLUNAS[col]} ({colunas[col].length})
+                      </h2>
 
-                        <button
-                          onClick={() => criarLead(col)}
-                          className="bg-black text-white px-3 py-1 rounded text-sm"
-                        >
-                          + Novo
-                        </button>
-                      </div>
-
-                      {colunas[col].map((lead, index) => (
-                        <Draggable
-                          draggableId={lead.id}
-                          index={index}
-                          key={lead.id}
-                        >
-                          {(prov) => (
-                            <div
-                              ref={prov.innerRef}
-                              {...prov.draggableProps}
-                              {...prov.dragHandleProps}
-                              onClick={() =>
-                                (window.location.href = `/leads/${lead.id}`)
-                              }
-                              className={`
-                                bg-white border ${CORES_CARD[col]} shadow 
-                                p-3 rounded mb-3 cursor-pointer
-                              `}
-                            >
-                              <p className="font-bold">{lead.nome}</p>
-
-                              <p className="text-xs text-gray-600 mt-1">
-                                {lead.telefone || "Sem telefone"}
-                              </p>
-
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const numero = lead.telefone.replace(/\D/g, "");
-                                  window.open(`https://wa.me/1${numero}`);
-                                }}
-                                className="text-green-600 text-xs mt-1 underline"
-                              >
-                                WhatsApp
-                              </button>
-
-                              <div className="text-xs text-gray-700 mt-2">
-                                <p>
-                                  <strong>Seguradora:</strong>{" "}
-                                  {lead.seguradora || "—"}
-                                </p>
-                                <p>
-                                  <strong>Origem:</strong>{" "}
-                                  {lead.origem || "—"}
-                                </p>
-                                <p>
-                                  <strong>Agente:</strong>{" "}
-                                  {lead.agente || "—"}
-                                </p>
-                              </div>
-                            </div>
-                          )}
-                        </Draggable>
-                      ))}
-
-                      {provided.placeholder}
+                      <button
+                        onClick={() => criarLead(col)}
+                        className="bg-black text-white px-3 py-1 rounded text-sm"
+                      >
+                        + Novo
+                      </button>
                     </div>
-                  )}
-                </Droppable>
-              );
-            })}
-          </div>
+
+                    {colunas[col].map((lead, index) => (
+                      <Draggable
+                        draggableId={lead.id}
+                        index={index}
+                        key={lead.id}
+                      >
+                        {(prov) => (
+                          <div
+                            ref={prov.innerRef}
+                            {...prov.draggableProps}
+                            {...prov.dragHandleProps}
+                            onClick={() =>
+                              (window.location.href = `/leads/${lead.id}`)
+                            }
+                            className={`bg-white border ${CORES_CARD[col]} shadow p-3 rounded mb-3 cursor-pointer`}
+                          >
+                            <p className="font-bold">{lead.nome}</p>
+                            <p className="text-xs text-gray-600 mt-1">
+                              {lead.telefone || "Sem telefone"}
+                            </p>
+
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const numero = lead.telefone.replace(/\D/g, "");
+                                window.open(`https://wa.me/1${numero}`);
+                              }}
+                              className="text-green-600 text-xs mt-1 underline"
+                            >
+                              WhatsApp
+                            </button>
+
+                            <div className="text-xs text-gray-700 mt-2">
+                              <p><strong>Seguradora:</strong> {lead.seguradora || "—"}</p>
+                              <p><strong>Origem:</strong> {lead.origem || "—"}</p>
+                              <p><strong>Agente:</strong> {lead.agente || "—"}</p>
+                            </div>
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            );
+          })}
         </div>
       </DragDropContext>
     </Layout>
