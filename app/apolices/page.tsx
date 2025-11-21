@@ -9,7 +9,7 @@ import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 type Apolice = {
   id: string;
   numero?: string;
-  clienteNome?: string;     // 🔥 Nome correto
+  clienteNome?: string;
   clienteTelefone?: string;
   seguradora?: string;
   ramo?: string;
@@ -22,10 +22,7 @@ export default function ApolicesPage() {
   const [busca, setBusca] = useState("");
 
   useEffect(() => {
-    const q = query(
-      collection(db, "todasApolices"),
-      orderBy("fimVigencia", "desc")
-    );
+    const q = query(collection(db, "todasApolices"), orderBy("fimVigencia", "desc"));
 
     const unsub = onSnapshot(q, (snap) => {
       const lista = snap.docs.map((d) => ({
@@ -42,11 +39,16 @@ export default function ApolicesPage() {
   const filtradas = apolices.filter((a) => {
     return (
       a.numero?.toLowerCase().includes(termo) ||
-      a.clienteNome?.toLowerCase().includes(termo) || // 🔥 campo correto
+      a.clienteNome?.toLowerCase().includes(termo) ||
       a.seguradora?.toLowerCase().includes(termo) ||
       a.ramo?.toLowerCase().includes(termo)
     );
   });
+
+  // 🔥 Detectar Mobile
+  const isMobile =
+    typeof window !== "undefined" &&
+    window.matchMedia("(max-width: 768px)").matches;
 
   return (
     <Layout>
@@ -69,59 +71,112 @@ export default function ApolicesPage() {
         className="mb-4 w-full border px-3 py-2 rounded-md shadow-sm"
       />
 
-      <div className="bg-white rounded-lg shadow border">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-gray-100 text-left">
-              <th className="p-3">Número</th>
-              <th className="p-3">Cliente</th>
-              <th className="p-3">Seguradora</th>
-              <th className="p-3">Vigência</th>
-              <th className="p-3">Ações</th>
-            </tr>
-          </thead>
+      {/* ============================================================
+          📱 MOBILE — Lista em Cards
+      ============================================================ */}
+      {isMobile && (
+        <div className="space-y-4">
+          {filtradas.map((a) => {
+            const ini = a.inicioVigencia?.toDate?.();
+            const fim = a.fimVigencia?.toDate?.();
 
-          <tbody>
-            {filtradas.map((a) => {
-              const ini = a.inicioVigencia?.toDate?.() as Date | undefined;
-              const fim = a.fimVigencia?.toDate?.() as Date | undefined;
+            return (
+              <div
+                key={a.id}
+                className="bg-white rounded-xl shadow border p-4"
+              >
+                <p className="font-bold text-lg">{a.numero || "Sem número"}</p>
+                <p className="text-sm text-gray-600">{a.clienteNome || "-"}</p>
 
-              const vig =
-                ini && fim
-                  ? `${ini.toLocaleDateString("pt-BR")} — ${fim.toLocaleDateString("pt-BR")}`
-                  : "-";
+                <p className="mt-2 text-xs text-gray-700">
+                  <strong>Seguradora:</strong> {a.seguradora || "-"}
+                </p>
 
-              return (
-                <tr key={a.id} className="border-t">
-                  <td className="p-3">{a.numero || "-"}</td>
+                <p className="text-xs text-gray-700">
+                  <strong>Vigência:</strong>{" "}
+                  {ini && fim
+                    ? `${ini.toLocaleDateString("pt-BR")} — ${fim.toLocaleDateString(
+                        "pt-BR"
+                      )}`
+                    : "-"}
+                </p>
 
-                  {/* 🔥 Campo corrigido */}
-                  <td className="p-3">{a.clienteNome || "-"}</td>
+                <Link
+                  href={`/apolices/${a.id}`}
+                  className="mt-3 inline-block px-3 py-1 bg-blue-600 text-white rounded text-sm"
+                >
+                  Abrir
+                </Link>
+              </div>
+            );
+          })}
 
-                  <td className="p-3">{a.seguradora || "-"}</td>
-                  <td className="p-3">{vig}</td>
-                  <td className="p-3">
-                    <Link
-                      href={`/apolices/${a.id}`}
-                      className="text-blue-600 hover:underline"
-                    >
-                      Abrir
-                    </Link>
+          {filtradas.length === 0 && (
+            <p className="text-center text-gray-500 text-sm mt-4">
+              Nenhuma apólice encontrada.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* ============================================================
+          🖥️ DESKTOP — Tabela original
+      ============================================================ */}
+      {!isMobile && (
+        <div className="bg-white rounded-lg shadow border">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-100 text-left">
+                <th className="p-3">Número</th>
+                <th className="p-3">Cliente</th>
+                <th className="p-3">Seguradora</th>
+                <th className="p-3">Vigência</th>
+                <th className="p-3">Ações</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {filtradas.map((a) => {
+                const ini = a.inicioVigencia?.toDate?.();
+                const fim = a.fimVigencia?.toDate?.();
+
+                const vig =
+                  ini && fim
+                    ? `${ini.toLocaleDateString("pt-BR")} — ${fim.toLocaleDateString("pt-BR")}`
+                    : "-";
+
+                return (
+                  <tr key={a.id} className="border-t">
+                    <td className="p-3">{a.numero || "-"}</td>
+                    <td className="p-3">{a.clienteNome || "-"}</td>
+                    <td className="p-3">{a.seguradora || "-"}</td>
+                    <td className="p-3">{vig}</td>
+                    <td className="p-3">
+                      <Link
+                        href={`/apolices/${a.id}`}
+                        className="text-blue-600 hover:underline"
+                      >
+                        Abrir
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
+
+              {filtradas.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="p-4 text-center text-gray-500 text-sm"
+                  >
+                    Nenhuma apólice encontrada.
                   </td>
                 </tr>
-              );
-            })}
-
-            {filtradas.length === 0 && (
-              <tr>
-                <td colSpan={5} className="p-4 text-center text-gray-500 text-sm">
-                  Nenhuma apólice encontrada.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
     </Layout>
   );
 }
