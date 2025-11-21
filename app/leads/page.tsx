@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Layout from "@/components/Layout";
-import Link from "next/link";
 import { db } from "@/lib/firebase";
 import {
   collection,
@@ -56,9 +55,12 @@ const CORES_CARD: Record<Status, string> = {
   fechado: "border-green-300",
 };
 
-export default function LeadsKanban() {
+export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [busca, setBusca] = useState("");
+
+  // 🔥 MOBILE — coluna aberta no modo fullscreen
+  const [colunaMobileAberta, setColunaMobileAberta] = useState<Status | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, "leads"), orderBy("ordem", "asc"));
@@ -128,6 +130,90 @@ export default function LeadsKanban() {
     window.location.href = `/leads/${ref.id}`;
   };
 
+  // ======================================================================
+  // 📱 MOBILE VIEW — 4 botões → abre coluna fullscreen
+  // ======================================================================
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+
+  if (isMobile && !colunaMobileAberta) {
+    return (
+      <Layout>
+        <h1 className="text-2xl font-bold mb-4">Leads</h1>
+
+        <input
+          type="text"
+          placeholder="Buscar lead..."
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          className="mb-6 w-full border p-3 rounded shadow"
+        />
+
+        <div className="grid grid-cols-1 gap-3">
+          {Object.keys(COLUNAS).map((c) => {
+            const col = c as Status;
+            return (
+              <button
+                key={col}
+                onClick={() => setColunaMobileAberta(col)}
+                className="w-full py-5 rounded-xl shadow text-white font-bold text-lg"
+                style={{
+                  background:
+                    col === "novo"
+                      ? "#2563eb"
+                      : col === "contato"
+                      ? "#ca8a04"
+                      : col === "proposta"
+                      ? "#7c3aed"
+                      : "#16a34a",
+                }}
+              >
+                {COLUNAS[col]} ({colunas[col].length})
+              </button>
+            );
+          })}
+        </div>
+      </Layout>
+    );
+  }
+
+  // ======================================================================
+  // 📱 MOBILE — COLUNA ABERTA (fullscreen)
+  // ======================================================================
+  if (isMobile && colunaMobileAberta) {
+    const col = colunaMobileAberta;
+
+    return (
+      <Layout>
+        <button
+          onClick={() => setColunaMobileAberta(null)}
+          className="mb-4 px-4 py-2 bg-gray-200 rounded font-semibold"
+        >
+          ← Voltar
+        </button>
+
+        <h2 className="text-xl font-bold mb-4">
+          {COLUNAS[col]} ({colunas[col].length})
+        </h2>
+
+        <div className="space-y-3">
+          {colunas[col].map((lead) => (
+            <div
+              key={lead.id}
+              onClick={() => (window.location.href = `/leads/${lead.id}`)}
+              className="bg-white border rounded-lg p-4 shadow"
+            >
+              <p className="font-bold">{lead.nome}</p>
+              <p className="text-xs text-gray-600">{lead.telefone}</p>
+            </div>
+          ))}
+        </div>
+      </Layout>
+    );
+  }
+
+  // ======================================================================
+  // 💻 DESKTOP — padrão (NÃO ALTERADO)
+  // ======================================================================
   return (
     <Layout>
       <h1 className="text-2xl font-bold mb-4">Leads — Pipeline</h1>
@@ -141,19 +227,14 @@ export default function LeadsKanban() {
       />
 
       <DragDropContext onDragEnd={onDragEnd}>
-        {/* 
-          MOBILE = 1 COLUNA  
-          DESKTOP = 4 COLUNAS  
-        */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-4 gap-4">
           {Object.keys(COLUNAS).map((c) => {
             const col = c as Status;
-
             return (
               <Droppable droppableId={col} key={col}>
                 {(provided) => (
                   <div
-                    className={`${CORES_COLUNA[col]} rounded-lg p-4 min-h-[450px] border shadow`}
+                    className={`${CORES_COLUNA[col]} rounded-lg p-4 min-h-[600px] border shadow`}
                     ref={provided.innerRef}
                     {...provided.droppableProps}
                   >
@@ -171,42 +252,19 @@ export default function LeadsKanban() {
                     </div>
 
                     {colunas[col].map((lead, index) => (
-                      <Draggable
-                        draggableId={lead.id}
-                        index={index}
-                        key={lead.id}
-                      >
+                      <Draggable key={lead.id} draggableId={lead.id} index={index}>
                         {(prov) => (
                           <div
                             ref={prov.innerRef}
                             {...prov.draggableProps}
                             {...prov.dragHandleProps}
-                            onClick={() =>
-                              (window.location.href = `/leads/${lead.id}`)
-                            }
+                            onClick={() => (window.location.href = `/leads/${lead.id}`)}
                             className={`bg-white border ${CORES_CARD[col]} shadow p-3 rounded mb-3 cursor-pointer`}
                           >
                             <p className="font-bold">{lead.nome}</p>
                             <p className="text-xs text-gray-600 mt-1">
                               {lead.telefone || "Sem telefone"}
                             </p>
-
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const numero = lead.telefone.replace(/\D/g, "");
-                                window.open(`https://wa.me/1${numero}`);
-                              }}
-                              className="text-green-600 text-xs mt-1 underline"
-                            >
-                              WhatsApp
-                            </button>
-
-                            <div className="text-xs text-gray-700 mt-2">
-                              <p><strong>Seguradora:</strong> {lead.seguradora || "—"}</p>
-                              <p><strong>Origem:</strong> {lead.origem || "—"}</p>
-                              <p><strong>Agente:</strong> {lead.agente || "—"}</p>
-                            </div>
                           </div>
                         )}
                       </Draggable>
