@@ -4,112 +4,59 @@ import { useEffect, useState } from "react";
 import Layout from "@/components/Layout";
 import { useParams, useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
-import {
-  doc,
-  getDoc,
-  updateDoc,
-  deleteDoc,
-  collection,
-  addDoc,
-} from "firebase/firestore";
+import { doc, getDoc, updateDoc, deleteDoc } from "firebase/firestore";
 
-export default function ClientePage() {
+export default function ApolicePage() {
   const { id } = useParams();
   const router = useRouter();
 
-  const [cliente, setCliente] = useState<any>(null);
+  const [apolice, setApolice] = useState<any>(null);
   const [editando, setEditando] = useState(false);
-
-  // Dados do formulário de nova apólice
-  const [novaApolice, setNovaApolice] = useState({
-    numero: "",
-    tipo: "",
-    seguradora: "",
-    premio: "",
-    inicioVigencia: "",
-    fimVigencia: "",
-  });
 
   const seguradoras = [
     "Pan American",
     "National",
     "Prudential",
-    "John Hancock",
+    "John Hancock"
   ];
 
   useEffect(() => {
     const carregar = async () => {
-      const ref = doc(db, "clientes", id as string);
+      const ref = doc(db, "todasApolices", id as string);
       const snap = await getDoc(ref);
 
       if (!snap.exists()) {
-        router.replace("/clientes");
+        router.replace("/apolices");
         return;
       }
 
-      setCliente({ id, ...snap.data() });
+      setApolice({ id, ...snap.data() });
     };
 
     carregar();
   }, [id, router]);
 
   const salvar = async () => {
-    await updateDoc(doc(db, "clientes", id as string), cliente);
-    alert("Cliente salvo!");
+    await updateDoc(doc(db, "todasApolices", id as string), apolice);
+    alert("Apólice salva!");
     setEditando(false);
   };
 
   const excluir = async () => {
-    if (!confirm("Confirmar exclusão do cliente?")) return;
-
-    await deleteDoc(doc(db, "clientes", id as string));
-    alert("Cliente excluído!");
-    router.push("/clientes");
+    if (!confirm("Confirmar exclusão da apólice?")) return;
+    await deleteDoc(doc(db, "todasApolices", id as string));
+    alert("Apólice excluída!");
+    router.push("/apolices");
   };
 
   const abrirWhatsApp = () => {
-    if (!cliente.telefone) return alert("Cliente sem telefone cadastrado!");
+    if (!apolice.clienteTelefone) return alert("Cliente sem telefone!");
 
-    const numero = cliente.telefone.replace(/\D/g, "");
-    if (!numero) return;
-
+    const numero = apolice.clienteTelefone.replace(/\D/g, "");
     window.open(`https://wa.me/1${numero}`, "_blank");
   };
 
-  const criarApolice = async () => {
-    if (
-      !novaApolice.numero ||
-      !novaApolice.inicioVigencia ||
-      !novaApolice.fimVigencia
-    ) {
-      return alert("Preencha pelo menos número e vigência!");
-    }
-
-    const apoliceObj = {
-      ...novaApolice,
-      clienteId: cliente.id,
-      clienteNome: cliente.nome,
-      clienteTelefone: cliente.telefone,
-      inicioVigencia: new Date(novaApolice.inicioVigencia),
-      fimVigencia: new Date(novaApolice.fimVigencia),
-    };
-
-    // 1 — Salva na coleção geral
-    const refNova = await addDoc(collection(db, "todasApolices"), apoliceObj);
-
-    // 2 — Salva dentro do cliente
-    await addDoc(
-      collection(db, `clientes/${cliente.id}/apolices`),
-      apoliceObj
-    );
-
-    alert("Apólice criada com sucesso!");
-
-    // Redireciona para a apólice criada
-    router.push(`/apolices/${refNova.id}`);
-  };
-
-  if (!cliente) {
+  if (!apolice) {
     return (
       <Layout>
         <p>Carregando...</p>
@@ -119,59 +66,96 @@ export default function ClientePage() {
 
   return (
     <Layout>
-      <h1 className="text-2xl font-bold mb-4">Cliente</h1>
+      <h1 className="text-2xl font-bold mb-4">Apólice</h1>
 
       <div className="bg-white border rounded shadow p-6 space-y-4 max-w-xl">
-        {/* Nome */}
+
+        {/* Número */}
         <div>
-          <label className="block text-sm font-medium">Nome</label>
+          <label className="block text-sm font-medium">Número</label>
           <input
-            className="border rounded px-3 py-2 w-full"
             disabled={!editando}
-            value={cliente.nome}
+            className="border rounded px-3 py-2 w-full"
+            value={apolice.numero || ""}
             onChange={(e) =>
-              setCliente({ ...cliente, nome: e.target.value })
+              setApolice({ ...apolice, numero: e.target.value })
             }
           />
         </div>
 
-        {/* Telefone */}
+        {/* Tipo */}
         <div>
-          <label className="block text-sm font-medium">Telefone</label>
+          <label className="block text-sm font-medium">Tipo</label>
           <input
-            className="border rounded px-3 py-2 w-full"
             disabled={!editando}
-            value={cliente.telefone}
+            className="border rounded px-3 py-2 w-full"
+            value={apolice.tipo || ""}
             onChange={(e) =>
-              setCliente({ ...cliente, telefone: e.target.value })
+              setApolice({ ...apolice, tipo: e.target.value })
             }
           />
+        </div>
 
-          {/* Botão WhatsApp */}
+        {/* Seguradora */}
+        <div>
+          <label className="block text-sm font-medium">Seguradora</label>
+          <input
+            list="listaSeguradoras"
+            disabled={!editando}
+            className="border rounded px-3 py-2 w-full"
+            value={apolice.seguradora || ""}
+            onChange={(e) =>
+              setApolice({ ...apolice, seguradora: e.target.value })
+            }
+          />
+          <datalist id="listaSeguradoras">
+            {seguradoras.map((s) => (
+              <option key={s} value={s} />
+            ))}
+          </datalist>
+        </div>
+
+        {/* Prêmio */}
+        <div>
+          <label className="block text-sm font-medium">Prêmio</label>
+          <input
+            disabled={!editando}
+            className="border rounded px-3 py-2 w-full"
+            value={apolice.premio || ""}
+            onChange={(e) =>
+              setApolice({ ...apolice, premio: e.target.value })
+            }
+          />
+        </div>
+
+        {/* Vigência */}
+        <div>
+          <label className="block text-sm font-medium">Vigência</label>
+          <p className="text-sm">
+            {apolice.inicioVigencia || "-"} — {apolice.fimVigencia || "-"}
+          </p>
+        </div>
+
+        {/* CLIENTE */}
+        <div className="border-t pt-4">
+          <label className="block text-sm font-medium">Cliente</label>
+
+          <div
+            className="cursor-pointer text-blue-600 font-semibold underline"
+            onClick={() => router.push(`/clientes/${apolice.clienteId}`)}
+          >
+            {apolice.clienteNome}
+          </div>
+
+          <p className="text-xs text-gray-600">{apolice.clienteTelefone}</p>
+
+          {/* Botão WhatsApp quadrado */}
           <button
             onClick={abrirWhatsApp}
-            className="mt-2 inline-flex items-center gap-2 bg-green-600 text-white px-3 py-2 rounded shadow"
+            className="mt-2 bg-green-500 px-3 py-2 rounded text-white font-bold"
           >
-            <img
-              src="/icons/whatsapp-white.svg"
-              alt="WhatsApp"
-              className="w-5 h-5"
-            />
             WhatsApp
           </button>
-        </div>
-
-        {/* Email */}
-        <div>
-          <label className="block text-sm font-medium">Email</label>
-          <input
-            className="border rounded px-3 py-2 w-full"
-            disabled={!editando}
-            value={cliente.email || ""}
-            onChange={(e) =>
-              setCliente({ ...cliente, email: e.target.value })
-            }
-          />
         </div>
 
         {/* Botões */}
@@ -193,7 +177,7 @@ export default function ClientePage() {
           )}
 
           <button
-            onClick={() => router.push("/clientes")}
+            onClick={() => router.push("/apolices")}
             className="px-4 py-2 bg-gray-300 rounded"
           >
             Voltar
@@ -206,101 +190,6 @@ export default function ClientePage() {
             Excluir
           </button>
         </div>
-      </div>
-
-      {/* NOVA APÓLICE */}
-      <div className="bg-white border rounded shadow p-6 space-y-4 max-w-xl mt-10">
-        <h2 className="text-xl font-bold">+ Nova Apólice</h2>
-
-        <div>
-          <label className="block text-sm">Número</label>
-          <input
-            className="border rounded px-3 py-2 w-full"
-            value={novaApolice.numero}
-            onChange={(e) =>
-              setNovaApolice({ ...novaApolice, numero: e.target.value })
-            }
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm">Tipo</label>
-          <input
-            className="border rounded px-3 py-2 w-full"
-            value={novaApolice.tipo}
-            onChange={(e) =>
-              setNovaApolice({ ...novaApolice, tipo: e.target.value })
-            }
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm">Seguradora</label>
-          <input
-            list="listaSeguradoras"
-            className="border rounded px-3 py-2 w-full"
-            value={novaApolice.seguradora}
-            onChange={(e) =>
-              setNovaApolice({
-                ...novaApolice,
-                seguradora: e.target.value,
-              })
-            }
-          />
-          <datalist id="listaSeguradoras">
-            {seguradoras.map((s) => (
-              <option key={s} value={s} />
-            ))}
-          </datalist>
-        </div>
-
-        <div>
-          <label className="block text-sm">Prêmio</label>
-          <input
-            className="border rounded px-3 py-2 w-full"
-            value={novaApolice.premio}
-            onChange={(e) =>
-              setNovaApolice({ ...novaApolice, premio: e.target.value })
-            }
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm">Início Vigência</label>
-          <input
-            type="date"
-            className="border rounded px-3 py-2 w-full"
-            value={novaApolice.inicioVigencia}
-            onChange={(e) =>
-              setNovaApolice({
-                ...novaApolice,
-                inicioVigencia: e.target.value,
-              })
-            }
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm">Fim Vigência</label>
-          <input
-            type="date"
-            className="border rounded px-3 py-2 w-full"
-            value={novaApolice.fimVigencia}
-            onChange={(e) =>
-              setNovaApolice({
-                ...novaApolice,
-                fimVigencia: e.target.value,
-              })
-            }
-          />
-        </div>
-
-        <button
-          onClick={criarApolice}
-          className="w-full px-4 py-2 bg-black text-white rounded mt-3"
-        >
-          Criar Apólice
-        </button>
       </div>
     </Layout>
   );
