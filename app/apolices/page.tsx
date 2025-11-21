@@ -4,16 +4,17 @@ import { useEffect, useState } from "react";
 import Layout from "@/components/Layout";
 import Link from "next/link";
 import { db } from "@/lib/firebase";
-import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 
 type Apolice = {
   id: string;
   numero?: string;
-  refNome?: string;
+  clienteNome?: string;     // 🔥 Nome correto
+  clienteTelefone?: string;
   seguradora?: string;
   ramo?: string;
-  inicioVigencia?: any; 
-  fimVigencia?: any; 
+  inicioVigencia?: any;
+  fimVigencia?: any;
 };
 
 export default function ApolicesPage() {
@@ -21,15 +22,16 @@ export default function ApolicesPage() {
   const [busca, setBusca] = useState("");
 
   useEffect(() => {
-    // 🔥 GARANTE QUE NUNCA QUEBRA MESMO SEM DATAS
-    const q = query(collection(db, "todasApolices"), orderBy("numero", "asc"));
+    const q = query(
+      collection(db, "todasApolices"),
+      orderBy("fimVigencia", "desc")
+    );
 
     const unsub = onSnapshot(q, (snap) => {
       const lista = snap.docs.map((d) => ({
         id: d.id,
         ...(d.data() as any),
       }));
-
       setApolices(lista);
     });
 
@@ -37,11 +39,10 @@ export default function ApolicesPage() {
   }, []);
 
   const termo = busca.toLowerCase();
-
   const filtradas = apolices.filter((a) => {
     return (
       a.numero?.toLowerCase().includes(termo) ||
-      a.refNome?.toLowerCase().includes(termo) ||
+      a.clienteNome?.toLowerCase().includes(termo) || // 🔥 campo correto
       a.seguradora?.toLowerCase().includes(termo) ||
       a.ramo?.toLowerCase().includes(termo)
     );
@@ -82,8 +83,8 @@ export default function ApolicesPage() {
 
           <tbody>
             {filtradas.map((a) => {
-              const ini = a.inicioVigencia?.toDate?.();
-              const fim = a.fimVigencia?.toDate?.();
+              const ini = a.inicioVigencia?.toDate?.() as Date | undefined;
+              const fim = a.fimVigencia?.toDate?.() as Date | undefined;
 
               const vig =
                 ini && fim
@@ -93,7 +94,10 @@ export default function ApolicesPage() {
               return (
                 <tr key={a.id} className="border-t">
                   <td className="p-3">{a.numero || "-"}</td>
-                  <td className="p-3">{a.refNome || "-"}</td>
+
+                  {/* 🔥 Campo corrigido */}
+                  <td className="p-3">{a.clienteNome || "-"}</td>
+
                   <td className="p-3">{a.seguradora || "-"}</td>
                   <td className="p-3">{vig}</td>
                   <td className="p-3">
@@ -110,10 +114,7 @@ export default function ApolicesPage() {
 
             {filtradas.length === 0 && (
               <tr>
-                <td
-                  colSpan={5}
-                  className="p-4 text-center text-gray-500 text-sm"
-                >
+                <td colSpan={5} className="p-4 text-center text-gray-500 text-sm">
                   Nenhuma apólice encontrada.
                 </td>
               </tr>
