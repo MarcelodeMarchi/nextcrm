@@ -34,6 +34,7 @@ export default function ClientePage() {
 
   const seguradoras = ["Pan American", "National", "Prudential", "John Hancock"];
 
+  // CARREGAR CLIENTE
   useEffect(() => {
     const carregar = async () => {
       const ref = doc(db, "clientes", id as string);
@@ -91,8 +92,8 @@ export default function ClientePage() {
       tipo: nova.tipo,
       seguradora: nova.seguradora,
       premio: nova.premio || "",
-      inicioVigencia: new Date(nova.inicioVigencia),
-      fimVigencia: new Date(nova.fimVigencia),
+      inicioVigencia: new Date(`${nova.inicioVigencia}T12:00:00`),
+      fimVigencia: new Date(`${nova.fimVigencia}T12:00:00`),
 
       clienteId: cliente.id,
       clienteNome: cliente.nome,
@@ -101,8 +102,6 @@ export default function ClientePage() {
     });
 
     alert("Apólice criada com sucesso!");
-
-    // Redireciona corretamente para a apólice criada
     router.push(`/apolices/${ref.id}`);
   };
 
@@ -143,22 +142,20 @@ export default function ClientePage() {
             }
           />
 
-          {/* BOTÃO WHATSAPP */}
+          {/* BOTÃO WHATSAPP (quadrado verde / ícone branco) */}
           <button
             onClick={abrirWhatsApp}
-            className="mt-2 flex items-center gap-2 bg-green-500 text-white px-3 py-1 rounded shadow"
+            className="mt-2 flex items-center gap-2 bg-green-500 text-white px-3 py-2 rounded shadow"
           >
-            {/* ÍCONE WHATSAPP INLINE (BRANCO) */}
             <svg
               xmlns="http://www.w3.org/2000/svg"
               fill="#FFF"
               viewBox="0 0 24 24"
-              width="18"
-              height="18"
+              width="20"
+              height="20"
             >
-              <path d="M20.52 3.48A11.86 11.86 0 0 0 12 .02 11.94 11.94 0 0 0 .05 12.02 11.86 11.86 0 0 0 3.5 20.5L2 24l3.62-1.46a12 12 0 0 0 6.4 1.77h.01c6.62 0 12-5.38 12-12a11.9 11.9 0 0 0-3.51-8.83zM12 22a10 10 0 0 1-5.11-1.4l-.37-.22-2.15.87.82-2.23-.24-.36A10 10 0 1 1 12 22zm5.21-7.81c-.29-.15-1.7-.84-1.96-.94-.26-.1-.45-.15-.64.15-.19.29-.74.94-.9 1.13-.17.19-.33.22-.62.07-.29-.15-1.23-.45-2.34-1.44-.86-.77-1.44-1.72-1.61-2-.17-.29-.02-.45.13-.6.13-.13.29-.33.43-.49.14-.17.19-.29.29-.48.1-.19.05-.36-.02-.51-.07-.15-.64-1.54-.88-2.11-.23-.55-.47-.48-.64-.49h-.55c-.19 0-.51.07-.78.36-.26.29-1.02 1-1.02 2.44s1.05 2.83 1.2 3.03c.15.19 2.07 3.17 5.02 4.45.7.3 1.25.48 1.68.62.71.23 1.36.2 1.87.12.57-.08 1.7-.69 1.94-1.36.24-.67.24-1.24.17-1.36-.07-.12-.26-.19-.55-.34z" />
+              <path d="M20.52 3.48A11.86 11.86 0 0 0 12 .02 11.94 11.94 0 0 0 .05 12.02 11.86 11.86 0 0 0 3.5 20.5L2 24l3.62-1.46a12 12 0 0 0 6.4 1.77h.01c6.62 0 12-5.38 12-12a11.9 11.9 0 0 0-3.51-8.83zM12 22a10 10 0 0 1-5.11-1.4l-.37-.22-2.15.87.82-2.23-.24-.36A10 10 0 1 1 12 22z" />
             </svg>
-
             WhatsApp
           </button>
         </div>
@@ -170,9 +167,7 @@ export default function ClientePage() {
             className="border rounded px-3 py-2 w-full"
             disabled={!editando}
             value={cliente.email || ""}
-            onChange={(e) =>
-              setCliente({ ...cliente, email: e.target.value })
-            }
+            onChange={(e) => setCliente({ ...cliente, email: e.target.value })}
           />
         </div>
 
@@ -220,6 +215,7 @@ export default function ClientePage() {
 
           {criandoApolice && (
             <div className="mt-4 space-y-3">
+              
               <input
                 className="border px-3 py-2 rounded w-full"
                 placeholder="Número"
@@ -253,9 +249,7 @@ export default function ClientePage() {
                 className="border px-3 py-2 rounded w-full"
                 placeholder="Prêmio"
                 value={nova.premio}
-                onChange={(e) =>
-                  setNova({ ...nova, premio: e.target.value })
-                }
+                onChange={(e) => setNova({ ...nova, premio: e.target.value })}
               />
 
               <label className="text-sm">Início Vigência</label>

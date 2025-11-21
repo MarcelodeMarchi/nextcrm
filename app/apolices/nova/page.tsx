@@ -32,14 +32,19 @@ export default function NovaApolicePage() {
       return;
     }
 
-    await addDoc(collection(db, "todasApolices"), {
+    if (!numero || !seguradora || !inicio || !fim) {
+      alert("Preencha todos os campos obrigatórios.");
+      return;
+    }
+
+    const ref = await addDoc(collection(db, "todasApolices"), {
       numero,
       tipo,
       seguradora,
       premio: Number(premio),
       moeda,
-      inicioVigencia: inicio ? new Date(inicio) : null,
-      fimVigencia: fim ? new Date(fim) : null,
+      inicioVigencia: inicio ? new Date(`${inicio}T12:00:00`) : null,
+      fimVigencia: fim ? new Date(`${fim}T12:00:00`) : null,
       notas,
       criadoEm: serverTimestamp(),
 
@@ -49,8 +54,8 @@ export default function NovaApolicePage() {
       clienteTelefone,
     });
 
-    alert("Apólice criada!");
-    router.push("/apolices");
+    alert("Apólice criada com sucesso!");
+    router.push(`/apolices/${ref.id}`);
   };
 
   return (

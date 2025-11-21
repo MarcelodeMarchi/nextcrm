@@ -15,6 +15,16 @@ export default function ApolicePage() {
 
   const seguradoras = ["Pan American", "National", "Prudential", "John Hancock"];
 
+  const safeDate = (value: any) => {
+    try {
+      if (value?.toDate) return value.toDate().toISOString().slice(0, 10);
+      if (!value) return "";
+      return new Date(value).toISOString().slice(0, 10);
+    } catch {
+      return "";
+    }
+  };
+
   useEffect(() => {
     const carregar = async () => {
       const ref = doc(db, "todasApolices", id as string);
@@ -25,14 +35,26 @@ export default function ApolicePage() {
         return;
       }
 
-      setApolice({ id, ...snap.data() });
+      const dados = snap.data();
+
+      setApolice({
+        id,
+        ...dados,
+        inicioVigencia: safeDate(dados.inicioVigencia),
+        fimVigencia: safeDate(dados.fimVigencia),
+      });
     };
 
     carregar();
   }, [id, router]);
 
   const salvar = async () => {
-    await updateDoc(doc(db, "todasApolices", id as string), apolice);
+    await updateDoc(doc(db, "todasApolices", id as string), {
+      ...apolice,
+      inicioVigencia: apolice.inicioVigencia ? new Date(apolice.inicioVigencia) : null,
+      fimVigencia: apolice.fimVigencia ? new Date(apolice.fimVigencia) : null,
+    });
+
     alert("Apólice salva!");
     setEditando(false);
   };
@@ -63,7 +85,6 @@ export default function ApolicePage() {
       <h1 className="text-2xl font-bold mb-4">Apólice</h1>
 
       <div className="bg-white border rounded shadow p-6 space-y-4 max-w-xl">
-
         {/* Número */}
         <div>
           <label className="block text-sm font-medium">Número</label>
@@ -94,9 +115,7 @@ export default function ApolicePage() {
             disabled={!editando}
             className="border rounded px-3 py-2 w-full"
             value={apolice.seguradora}
-            onChange={(e) =>
-              setApolice({ ...apolice, seguradora: e.target.value })
-            }
+            onChange={(e) => setApolice({ ...apolice, seguradora: e.target.value })}
           />
           <datalist id="listaSeguradoras">
             {seguradoras.map((s) => (
@@ -112,21 +131,36 @@ export default function ApolicePage() {
             disabled={!editando}
             className="border rounded px-3 py-2 w-full"
             value={apolice.premio}
-            onChange={(e) =>
-              setApolice({ ...apolice, premio: e.target.value })
-            }
+            onChange={(e) => setApolice({ ...apolice, premio: e.target.value })}
           />
         </div>
 
         {/* Vigência */}
-        <div>
-          <label className="block text-sm font-medium">Vigência</label>
-          <p className="text-sm">
-            {apolice.inicioVigencia} — {apolice.fimVigencia}
-          </p>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm">Início</label>
+            <input
+              type="date"
+              disabled={!editando}
+              className="border rounded px-3 py-2 w-full"
+              value={apolice.inicioVigencia}
+              onChange={(e) => setApolice({ ...apolice, inicioVigencia: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label className="text-sm">Fim</label>
+            <input
+              type="date"
+              disabled={!editando}
+              className="border rounded px-3 py-2 w-full"
+              value={apolice.fimVigencia}
+              onChange={(e) => setApolice({ ...apolice, fimVigencia: e.target.value })}
+            />
+          </div>
         </div>
 
-        {/* CLIENTE DENTRO DA APÓLICE */}
+        {/* CLIENTE */}
         <div className="border-t pt-4">
           <label className="block text-sm font-medium">Cliente</label>
 
@@ -141,9 +175,9 @@ export default function ApolicePage() {
 
           <button
             onClick={abrirWhatsApp}
-            className="mt-2 text-green-600 underline text-sm font-semibold"
+            className="mt-2 flex items-center gap-2 bg-green-500 text-white px-3 py-1 rounded shadow"
           >
-            Abrir WhatsApp
+            WhatsApp
           </button>
         </div>
 
