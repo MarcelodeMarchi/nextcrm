@@ -15,14 +15,14 @@ import {
 type Tarefa = {
   id: string;
   titulo: string;
-  data?: any; // Firestore Timestamp
+  data?: any;
 };
 
 type Apolice = {
   id: string;
   numero?: string;
   refNome?: string;
-  fimVigencia?: any; // Firestore Timestamp
+  fimVigencia?: any;
 };
 
 export default function DashboardPage() {
@@ -33,25 +33,18 @@ export default function DashboardPage() {
   const [renovacoes, setRenovacoes] = useState<Apolice[]>([]);
 
   useEffect(() => {
-    // ===== LEADS =====
-    const unsubLeads = onSnapshot(collection(db, "leads"), (snap) => {
-      setTotalLeads(snap.size);
-    });
-
-    // ===== CLIENTES =====
-    const unsubClientes = onSnapshot(collection(db, "clientes"), (snap) => {
-      setTotalClientes(snap.size);
-    });
-
-    // ===== APÓLICES =====
-    const unsubApolices = onSnapshot(
-      collection(db, "todasApolices"),
-      (snap) => {
-        setTotalApolices(snap.size);
-      }
+    const unsubLeads = onSnapshot(collection(db, "leads"), (snap) =>
+      setTotalLeads(snap.size)
     );
 
-    // ===== PRÓXIMAS TAREFAS (5 mais próximas com data) =====
+    const unsubClientes = onSnapshot(collection(db, "clientes"), (snap) =>
+      setTotalClientes(snap.size)
+    );
+
+    const unsubApolices = onSnapshot(collection(db, "todasApolices"), (snap) =>
+      setTotalApolices(snap.size)
+    );
+
     const qTarefas = query(
       collection(db, "tarefas"),
       orderBy("data", "asc"),
@@ -59,14 +52,11 @@ export default function DashboardPage() {
     );
 
     const unsubTarefas = onSnapshot(qTarefas, (snap) => {
-      const lista = snap.docs.map((d) => ({
-        id: d.id,
-        ...(d.data() as any),
-      }));
-      setTarefasProximas(lista);
+      setTarefasProximas(
+        snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }))
+      );
     });
 
-    // ===== RENOVAÇÕES 30 DIAS =====
     const hoje = new Date();
     const limite = new Date();
     limite.setDate(limite.getDate() + 30);
@@ -80,11 +70,9 @@ export default function DashboardPage() {
     );
 
     const unsubRen = onSnapshot(qRen, (snap) => {
-      const lista = snap.docs.map((d) => ({
-        id: d.id,
-        ...(d.data() as any),
-      }));
-      setRenovacoes(lista);
+      setRenovacoes(
+        snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }))
+      );
     });
 
     return () => {
@@ -98,57 +86,49 @@ export default function DashboardPage() {
 
   return (
     <Layout>
-      <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
+      <h1 className="text-3xl font-bold mb-6 text-center md:text-left">
+        Dashboard
+      </h1>
 
-      {/* CARDS RESUMO */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+      {/* === CARDS RESUMO === */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-10">
 
-        {/* LEADS */}
         <div className="rounded-2xl p-6 shadow-md bg-gradient-to-br from-blue-600 to-blue-800 text-white">
           <p className="text-sm opacity-80">Total de Leads</p>
           <p className="text-4xl font-extrabold mt-1">{totalLeads}</p>
-          <p className="text-xs mt-2 opacity-80">
-            Leads ativos cadastrados no funil.
-          </p>
+          <p className="text-xs mt-2 opacity-80">Leads ativos cadastrados.</p>
         </div>
 
-        {/* CLIENTES */}
         <div className="rounded-2xl p-6 shadow-md bg-gradient-to-br from-emerald-600 to-emerald-800 text-white">
           <p className="text-sm opacity-80">Total de Clientes</p>
           <p className="text-4xl font-extrabold mt-1">{totalClientes}</p>
-          <p className="text-xs mt-2 opacity-80">
-            Clientes com cadastro ativo no CRM.
-          </p>
+          <p className="text-xs mt-2 opacity-80">Clientes ativos cadastrados.</p>
         </div>
 
-        {/* APÓLICES */}
         <div className="rounded-2xl p-6 shadow-md bg-gradient-to-br from-purple-600 to-purple-800 text-white">
           <p className="text-sm opacity-80">Total de Apólices</p>
           <p className="text-4xl font-extrabold mt-1">{totalApolices}</p>
-          <p className="text-xs mt-2 opacity-80">
-            Apólices registradas em todas as companhias.
-          </p>
+          <p className="text-xs mt-2 opacity-80">Apólices registradas.</p>
         </div>
       </div>
 
-      {/* PRÓXIMAS TAREFAS */}
+      {/* === PRÓXIMAS TAREFAS === */}
       <section className="mb-10">
         <h2 className="text-xl font-bold mb-3">Próximas tarefas</h2>
-        <div className="bg-white rounded-2xl shadow border border-gray-100 p-5">
+
+        <div className="bg-white rounded-2xl shadow border p-5">
+
           {tarefasProximas.length === 0 && (
-            <p className="text-gray-500 text-sm">
-              Nenhuma tarefa próxima cadastrada.
-            </p>
+            <p className="text-gray-500 text-sm">Nenhuma tarefa futura.</p>
           )}
 
           {tarefasProximas.map((t) => {
-            const data = t.data?.toDate?.();
-            const dataFmt = data
-              ? data.toLocaleDateString("pt-BR")
+            const dt = t.data?.toDate?.();
+            const dataFmt = dt
+              ? dt.toLocaleDateString("pt-BR")
               : "Sem data";
-
-            const horaFmt = data
-              ? data.toLocaleTimeString("pt-BR", {
+            const horaFmt = dt
+              ? dt.toLocaleTimeString("pt-BR", {
                   hour: "2-digit",
                   minute: "2-digit",
                 })
@@ -157,30 +137,28 @@ export default function DashboardPage() {
             return (
               <div
                 key={t.id}
-                className="flex items-center justify-between border-b last:border-b-0 py-2"
+                className="py-3 border-b last:border-b-0 flex flex-col sm:flex-row sm:justify-between"
               >
-                <div>
-                  <p className="font-semibold text-sm">{t.titulo}</p>
-                  <p className="text-xs text-gray-600">
-                    {dataFmt}
-                    {horaFmt && ` — ${horaFmt}`}
-                  </p>
-                </div>
+                <p className="font-semibold text-sm">{t.titulo}</p>
+                <p className="text-xs text-gray-600 mt-1 sm:mt-0">
+                  {dataFmt} {horaFmt && `— ${horaFmt}`}
+                </p>
               </div>
             );
           })}
         </div>
       </section>
 
-      {/* RENOVAÇÕES */}
+      {/* === RENOVAÇÕES === */}
       <section>
         <h2 className="text-xl font-bold mb-3">
           Renovações (próximos 30 dias)
         </h2>
-        <div className="bg-white rounded-2xl shadow border border-gray-100 p-5">
+
+        <div className="bg-white rounded-2xl shadow border p-5">
           {renovacoes.length === 0 && (
             <p className="text-gray-500 text-sm">
-              Nenhuma apólice para renovar nos próximos 30 dias.
+              Nenhuma apólice para renovar.
             </p>
           )}
 
@@ -188,21 +166,20 @@ export default function DashboardPage() {
             const dt = a.fimVigencia?.toDate?.();
             const dtFmt = dt
               ? dt.toLocaleDateString("pt-BR")
-              : "Data não informada";
+              : "Sem data";
 
             return (
               <div
                 key={a.id}
-                className="flex items-center justify-between border-b last:border-b-0 py-2"
+                className="py-3 border-b last:border-b-0 flex flex-col sm:flex-row sm:justify-between"
               >
-                <div>
-                  <p className="font-semibold text-sm">
-                    {a.numero || "Sem número"} — {a.refNome || "Sem nome"}
-                  </p>
-                  <p className="text-xs text-gray-600">
-                    Vence em {dtFmt}
-                  </p>
-                </div>
+                <p className="font-semibold text-sm">
+                  {a.numero || "---"} — {a.refNome || "---"}
+                </p>
+
+                <p className="text-xs text-gray-600 mt-1 sm:mt-0">
+                  Vence em {dtFmt}
+                </p>
               </div>
             );
           })}
