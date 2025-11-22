@@ -28,23 +28,21 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   return (
-    <div className="flex h-screen bg-gray-900 text-white">
+    <div className="min-h-screen flex bg-gray-100">
 
-      {/* SIDEBAR */}
-      <aside className="w-64 flex flex-col border-r border-gray-800">
+      {/* MENU LATERAL */}
+      <aside className="w-64 bg-gray-900 text-white flex flex-col">
 
-        {/* LOGO E TÍTULO */}
-        <div className="p-4 border-b border-gray-800 flex items-center gap-3">
-          <div className="bg-white rounded-lg p-2">
-            <Image
-              src="/logo-next.png"
-              alt="Next Financial Consulting"
-              width={40}
-              height={40}
-              className="h-10 w-auto"
-              priority
-            />
-          </div>
+        {/* LOGO */}
+        <div className="p-6 border-b border-gray-700 flex items-center gap-3">
+          <Image
+            src="/logo-next.png"
+            alt="Next Financial Consulting"
+            width={50}
+            height={50}
+            className="rounded"
+            priority
+          />
 
           <div className="leading-tight">
             <div className="text-lg font-bold">Next CRM</div>
@@ -65,7 +63,7 @@ export default function Layout({ children }: LayoutProps) {
                 className={`block px-3 py-2 rounded-md text-sm font-medium ${
                   active
                     ? "bg-gray-100 text-black"
-                    : "text-gray-200 hover:bg-gray-800"
+                    : "text-gray-300 hover:bg-gray-800"
                 }`}
               >
                 {item.label}
@@ -81,14 +79,10 @@ export default function Layout({ children }: LayoutProps) {
         >
           Sair
         </button>
-
       </aside>
 
       {/* CONTEÚDO PRINCIPAL */}
-      <main className="flex-1 p-6 overflow-y-auto">
-        {children}
-      </main>
-
+      <main className="flex-1 p-6">{children}</main>
     </div>
   );
 }
