@@ -38,8 +38,8 @@ export default function Layout({ children }: LayoutProps) {
   <Image
     src="/logo-next.png"
     alt="Next Financial Consulting"
-    width={90}       // 🔥 AUMENTA AQUI
-    height={90}
+    width={110}       // 🔥 AUMENTA AQUI
+    height={110}
     className="opacity-100"
     priority
   />
