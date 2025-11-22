@@ -28,26 +28,33 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   return (
-<div className="p-4 border-b border-gray-800 flex items-center gap-3">
-  <div className="bg-white rounded-lg p-2">
-    <Image
-      src="/logo-next.png"
-      alt="Next Financial Consulting"
-      width={40}
-      height={40}
-      className="h-10 w-auto"
-      priority
-    />
-  </div>
+    <div className="flex h-screen bg-gray-900 text-white">
 
-  <div className="leading-tight">
-    <div className="text-lg font-bold">Next CRM</div>
-    <div className="text-[11px] text-gray-300 uppercase tracking-wide">
-      Consultoria &amp; Seguros de Vida
-    </div>
-  </div>
-</div>
+      {/* SIDEBAR */}
+      <aside className="w-64 flex flex-col border-r border-gray-800">
 
+        {/* LOGO E TÍTULO */}
+        <div className="p-4 border-b border-gray-800 flex items-center gap-3">
+          <div className="bg-white rounded-lg p-2">
+            <Image
+              src="/logo-next.png"
+              alt="Next Financial Consulting"
+              width={40}
+              height={40}
+              className="h-10 w-auto"
+              priority
+            />
+          </div>
+
+          <div className="leading-tight">
+            <div className="text-lg font-bold">Next CRM</div>
+            <div className="text-[11px] text-gray-300 uppercase tracking-wide">
+              Consultoria & Seguros de Vida
+            </div>
+          </div>
+        </div>
+
+        {/* MENU */}
         <nav className="flex-1 px-2 py-4 space-y-1">
           {menuItems.map((item) => {
             const active = pathname.startsWith(item.href);
@@ -67,16 +74,21 @@ export default function Layout({ children }: LayoutProps) {
           })}
         </nav>
 
+        {/* BOTÃO SAIR */}
         <button
           onClick={handleLogout}
           className="m-4 mt-auto px-3 py-2 rounded-md text-sm font-medium bg-red-500 hover:bg-red-600"
         >
           Sair
         </button>
+
       </aside>
 
-      {/* Conteúdo principal */}
-      <main className="flex-1 p-6">{children}</main>
+      {/* CONTEÚDO PRINCIPAL */}
+      <main className="flex-1 p-6 overflow-y-auto">
+        {children}
+      </main>
+
     </div>
   );
 }
