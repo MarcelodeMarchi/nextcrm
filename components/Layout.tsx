@@ -44,12 +44,11 @@ export default function Layout({ children }: LayoutProps) {
             priority
           />
 
-          <div className="leading-tight">
-            <div className="text-lg font-bold">Next CRM</div>
-            <div className="text-[11px] text-gray-300 uppercase tracking-wide">
-              Consultoria & Seguros de Vida
-            </div>
-          </div>
+       <div className="leading-tight">
+  <div className="text-lg font-semibold text-white">
+    {/* Remover texto completamente */}
+  </div>
+</div>
         </div>
 
         {/* MENU */}
