@@ -34,15 +34,15 @@ export default function Layout({ children }: LayoutProps) {
       <aside className="w-64 bg-gray-900 text-white flex flex-col">
 
         {/* LOGO */}
-        <div className="p-6 border-b border-gray-700 flex items-center gap-3">
-          <Image
-            src="/logo-next.png"
-            alt="Next Financial Consulting"
-            width={50}
-            height={50}
-            className="rounded"
-            priority
-          />
+        <div className="p-6 border-b border-gray-800 flex items-center justify-center">
+  <Image
+    src="/logo-next.png"
+    alt="Next Financial Consulting"
+    width={90}       // 🔥 AUMENTA AQUI
+    height={90}
+    className="opacity-100"
+    priority
+  />
 
        <div className="leading-tight">
   <div className="text-lg font-semibold text-white">
