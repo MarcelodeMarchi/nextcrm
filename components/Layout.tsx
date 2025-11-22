@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { ReactNode } from "react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import Image from "next/image";
 
 type LayoutProps = {
   children: ReactNode;
@@ -27,15 +28,25 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   return (
-    <div className="min-h-screen flex bg-gray-50">
-      {/* Sidebar */}
-      <aside className="w-64 bg-black text-white flex flex-col">
-        <div className="px-6 py-4 border-b border-gray-800">
-          <h1 className="text-xl font-bold">Next CRM</h1>
-          <p className="text-xs text-gray-400">
-            Consultoria & Seguros de Vida
-          </p>
-        </div>
+<div className="p-4 border-b border-gray-800 flex items-center gap-3">
+  <div className="bg-white rounded-lg p-2">
+    <Image
+      src="/logo-next.png"
+      alt="Next Financial Consulting"
+      width={40}
+      height={40}
+      className="h-10 w-auto"
+      priority
+    />
+  </div>
+
+  <div className="leading-tight">
+    <div className="text-lg font-bold">Next CRM</div>
+    <div className="text-[11px] text-gray-300 uppercase tracking-wide">
+      Consultoria &amp; Seguros de Vida
+    </div>
+  </div>
+</div>
 
         <nav className="flex-1 px-2 py-4 space-y-1">
           {menuItems.map((item) => {
