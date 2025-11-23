@@ -20,6 +20,12 @@ import {
   Draggable,
 } from "@hello-pangea/dnd";
 
+import * as XLSX from "xlsx";
+
+// PDF EXPORT
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+
 type Lead = {
   id: string;
   nome: string;
@@ -58,8 +64,6 @@ const CORES_CARD: Record<Status, string> = {
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [busca, setBusca] = useState("");
-
-  // 📱 MOBILE — coluna aberta fullscreen
   const [colunaMobileAberta, setColunaMobileAberta] =
     useState<Status | null>(null);
 
@@ -98,7 +102,6 @@ export default function LeadsPage() {
     const origem = source.droppableId as Status;
     const destino = destination.droppableId as Status;
 
-    // Mudança de coluna
     if (origem !== destino) {
       await updateDoc(doc(db, "leads", draggableId), {
         status: destino,
@@ -107,7 +110,6 @@ export default function LeadsPage() {
       return;
     }
 
-    // Apenas mudando a ordem dentro da mesma coluna
     const novaLista = [...colunas[origem]];
     const [removido] = novaLista.splice(source.index, 1);
     novaLista.splice(destination.index, 0, removido);
@@ -133,13 +135,58 @@ export default function LeadsPage() {
     window.location.href = `/leads/${ref.id}`;
   };
 
-  // Detecta mobile
   const isMobile =
     typeof window !== "undefined" && window.innerWidth < 768;
 
-  // ======================================================================
-  // 📱 MOBILE — TELA INICIAL (4 botões + botão flutuante)
-  // ======================================================================
+  // =========================================
+  // 🔥 EXPORTAR PARA EXCEL
+  // =========================================
+  const exportarExcel = () => {
+    const dados = leadsFiltrados.map((l) => ({
+      Nome: l.nome,
+      Telefone: l.telefone,
+      Email: l.email,
+      Seguradora: l.seguradora || "-",
+      Origem: l.origem || "-",
+      Agente: l.agente || "-",
+      Status: COLUNAS[l.status],
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(dados);
+    const wb = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(wb, ws, "Leads");
+
+    XLSX.writeFile(wb, "leads.xlsx");
+  };
+
+  // =========================================
+  // 🔥 EXPORTAR PARA PDF
+  // =========================================
+  const exportarPDF = () => {
+    const pdf = new jsPDF();
+
+    pdf.setFontSize(16);
+    pdf.text("Relatório de Leads", 14, 15);
+
+    autoTable(pdf, {
+      startY: 25,
+      head: [["Nome", "Telefone", "Email", "Seguradora", "Status"]],
+      body: leadsFiltrados.map((l) => [
+        l.nome,
+        l.telefone || "-",
+        l.email || "-",
+        l.seguradora || "-",
+        COLUNAS[l.status],
+      ]),
+    });
+
+    pdf.save("leads.pdf");
+  };
+
+  // =========================================
+  // 📱 MOBILE — TELA INICIAL
+  // =========================================
   if (isMobile && !colunaMobileAberta) {
     return (
       <Layout>
@@ -152,6 +199,22 @@ export default function LeadsPage() {
           onChange={(e) => setBusca(e.target.value)}
           className="mb-6 w-full border p-3 rounded shadow"
         />
+
+        {/* BOTÕES EXPORTAÇÃO */}
+        <div className="flex gap-3 mb-4">
+          <button
+            onClick={exportarExcel}
+            className="flex-1 bg-green-600 text-white rounded py-2 font-semibold"
+          >
+            Excel
+          </button>
+          <button
+            onClick={exportarPDF}
+            className="flex-1 bg-red-600 text-white rounded py-2 font-semibold"
+          >
+            PDF
+          </button>
+        </div>
 
         <div className="grid grid-cols-1 gap-3">
           {Object.keys(COLUNAS).map((c) => {
@@ -189,9 +252,9 @@ export default function LeadsPage() {
     );
   }
 
-  // ======================================================================
-  // 📱 MOBILE — COLUNA FULLSCREEN
-  // ======================================================================
+  // =========================================
+  // 📱 MOBILE — COLUNA ABERTA
+  // =========================================
   if (isMobile && colunaMobileAberta) {
     const col = colunaMobileAberta;
 
@@ -203,6 +266,21 @@ export default function LeadsPage() {
         >
           ← Voltar
         </button>
+
+        <div className="flex gap-3 mb-4">
+          <button
+            onClick={exportarExcel}
+            className="flex-1 bg-green-600 text-white rounded py-2 font-semibold"
+          >
+            Excel
+          </button>
+          <button
+            onClick={exportarPDF}
+            className="flex-1 bg-red-600 text-white rounded py-2 font-semibold"
+          >
+            PDF
+          </button>
+        </div>
 
         <h2 className="text-xl font-bold mb-4">
           {COLUNAS[col]} ({colunas[col].length})
@@ -223,7 +301,6 @@ export default function LeadsPage() {
           ))}
         </div>
 
-        {/* Botão flutuante aqui também */}
         <button
           onClick={() => criarLead(col)}
           className="fixed bottom-6 right-6 bg-black text-white rounded-full px-5 py-4 shadow-xl text-lg font-bold"
@@ -234,21 +311,34 @@ export default function LeadsPage() {
     );
   }
 
-  // ======================================================================
-  // 💻 DESKTOP — layout original (NÃO ALTERAR)
-  // ======================================================================
+  // =========================================
+  // 💻 DESKTOP — Layout original + botões exportação
+  // =========================================
   return (
     <Layout>
-      <h1 className="text-2xl font-bold mb-4">
-        Leads — Pipeline
-      </h1>
+      <h1 className="text-2xl font-bold mb-4">Leads — Pipeline</h1>
+
+      <div className="flex gap-3 mb-4">
+        <button
+          onClick={exportarExcel}
+          className="bg-green-600 text-white rounded px-4 py-2 text-sm font-semibold"
+        >
+          Exportar Excel
+        </button>
+        <button
+          onClick={exportarPDF}
+          className="bg-red-600 text-white rounded px-4 py-2 text-sm font-semibold"
+        >
+          Exportar PDF
+        </button>
+      </div>
 
       <input
         type="text"
         placeholder="Buscar lead..."
         value={busca}
         onChange={(e) => setBusca(e.target.value)}
-        className="mb-6 w-full border p-3 rounded shadow"
+        className="mb-6 w-full border p3 rounded shadow"
       />
 
       <DragDropContext onDragEnd={onDragEnd}>
