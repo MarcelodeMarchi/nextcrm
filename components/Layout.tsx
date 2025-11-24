@@ -40,8 +40,7 @@ export default function Layout({ children }: LayoutProps) {
     alt="Next Financial Consulting"
     width={120}       // 🔥 AUMENTA AQUI
     height={120}
-    className="opacity-100"
-    priority
+    className="mx-auto"
   />
 
        <div className="leading-tight">
